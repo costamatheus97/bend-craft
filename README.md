@@ -58,8 +58,9 @@ Settings are environment variables. They are listed at the top of
 - `PLAY_MODE`: how a frame reaches the window. The default is 2 (`Blit.frame`)
   where `Blit.ok` says it runs, and 1 (`Window.frame`) everywhere else.
 
-On the CPU, 16 threads render 640 x 360 in about 18 ms and 1280 x 720 in about
-63 ms. So on a CPU, play with `PLAY_U=1` or `PLAY_U=2`, or a smaller window.
+On the CPU, 16 threads render 640 x 360 in about 15 ms (a little over the budget at
+its slowest frames) and 480 x 270 in about 9 ms. So on a CPU, play with `PLAY_U=2`: a
+1920 x 1080 window holds 60 fps.
 
 ## The GPU lane
 
@@ -180,19 +181,32 @@ of the scripted walk, in 3 rounds or more. Every round must meet all of these:
 `OPTIMIZATIONS.md` logs every attempt, including the ones that didn't work.
 For each it gives the expected gain, the measured gain and the commit.
 
-GPU lane, RX 7800 XT, tier 3, view distance 48:
+GPU lane, RX 7800 XT, tier 3, view distance 48 (busy in ms, the range over the rounds):
 
 | Rung | Samples | busy p95 | busy p99 |
 |-|-|-|-|
 | 720p | 1280x720 | 12.5 | 13.1 |
-| 1080p up2 | 960x540 | 10.3 | 10.6 |
+| 1080p up2 | 960x540 | 9.5-9.6 | 10.0-10.1 |
 | 1080p | 1920x1080 | 14.6-14.9 | 15.3-15.9 |
-| 1440p up2 | 1280x720 | 15.2-15.4 | 16.1-16.3 |
-| 4K up4 | 960x540 | 14.8-15.2 | 15.8-16.4 |
+| 1440p up2 | 1280x720 | 13.7-13.9 | 14.4-14.6 |
+| 4K up4 | 960x540 | 11.4-11.5 | 12.1-12.2 |
 
-Not reached yet: 1440p native and 4K up2.
+Not reached: 4K up2 (p95 16.5-16.6 passes, p99 17.3-17.9 does not) and 1440p native (p95
+21.3-21.6). Both are held by the render kernel. A prototype of an upstream compiler change (the
+array's location read once per ray, not once per voxel) takes 4K up2 to p95 15.1-15.4 / p99
+16.0-16.2, which passes; see `OPTIMIZATIONS.md`.
 
-The CPU ladder (16 threads) is in `OPTIMIZATIONS.md`. The run log, with
+CPU lane, 16 threads (Ryzen 7 5800XT), same settings:
+
+| Rung | Samples | busy p95 | busy p99 |
+|-|-|-|-|
+| 320x180 | 320x180 | 5.5-5.6 | 5.9-6.0 |
+| 720p up2 | 320x180 | 5.6-5.7 | 6.0 |
+| 1080p up2 | 480x270 | 10.6-10.7 | 11.2-11.3 |
+
+Not reached: 640x360 (p95 17.1-18.2, p99 18.1-19.6).
+
+`OPTIMIZATIONS.md` has every attempt and the rounds behind each number. The run log, with
 terrain and render sweeps, is `LOG.md`. Screenshots are in `media/`.
 
 ## Credits

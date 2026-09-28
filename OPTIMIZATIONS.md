@@ -126,9 +126,79 @@ writes 14.7 MB down the X socket), busy med 18.9 / p95 24.4, 23-36 frames missed
 | **1440p up2** | 1280x720 | 4 (after 19) | 15.22-15.37 | 16.06-16.31 | 0-1 | 16.685-16.693 | `media/gpu-1440p-up2-paced.png` |
 | **4K up4** | 960x540 | 4 (after 20) | 14.79-15.16 | 15.75-16.35 | 0-1 | 16.697-16.722 | `media/gpu-4k-up4-paced.png` |
 
+After 24 (3 rounds each, `playp`, 0 missed in every round): 1080p up2 busy p95 9.49-9.56 / p99
+9.98-10.14; 1440p up2 13.66-13.93 / 14.42-14.56; 4K up4 11.35-11.47 / 12.09-12.23. The thin
+margins above (1440p up2, 4K up4) are now 2.1-4.5 ms.
+
 Frame 900 of the walk is byte-identical on the GPU and on c16 at 1080p up2, 1080p native,
 1440p up2 and 4K up4. The 1440p-up2 margin at p99 is 0.4-0.6 ms: the thinnest of the four.
 
 Not unlocked (1 round each, after 19): 1440p native (not run yet: 2560x1440 samples, render
 alone is over the budget at 1080p's 12.9 ms busy scaled by 1.8x), 4K up2 (1920x1080 samples:
 busy p95 22.0, fill 6.1 before 20); 4K up4 unlocked with 20.
+
+## GPU ladder: the upscale on the X server (after the 4K-up4 rung)
+
+At 4K up2 (1920x1080 samples) the host upscale writes 33 MB a frame: fill 4.3 ms med, busy
+p95 20.1-20.2, p99 20.9-21.1, 2-4 frames missed a round (build `playo`, 3 rounds).
+
+| # | Idea | Bottleneck | Expected | Measured | Verdict | Commit |
+|-|-|-|-|-|-|-|
+| 24 | **XRender upscale**: the shared images hold the samples only; XShmPutImage puts them into a pixmap, and XRenderComposite draws the pixmap onto the window through a 1/2^U transform with the "nearest" filter (libXrender opened at run time; the host upscale when it is missing, or `PLAY_XR=0`). The X server scales; the game copies samples only | fill: the host upscale's stores (33 MB a frame at 4K) | fill -3 ms at 4K up2 | shipping build, 3 rounds interleaved, `playo` -> `playp`: **4K up2** fill 4.3 -> 0.93, busy med 17.7 -> 14.0, p95 20.1-20.2 -> 16.49-16.57, p99 20.9-21.1 -> 17.26-17.93, missed 2-4 -> 0-2; **4K up4** busy p95 15.16-15.36 -> 11.35-11.47, p99 16.21-16.36 -> 12.09-12.23, missed 0-2 -> 0; **1440p up2** p95 15.08-15.23 -> 13.66-13.93, p99 15.75-16.08 -> 14.42-14.56; **1080p up2** p95 10.31-10.40 -> 9.49-9.56, p99 10.75-10.88 -> 9.98-10.14; 1440p up2 and 1080p up2 0 missed in every round. Pixels: the window read back from the server (`PLAY_SHOT_SERVER`, XGetImage) = the host upscale's frame = `PLAY_XR=0`'s readback = the previous build's frame, at 4K up2 and up4 on the GPU (frame 120), at 640x360 u1, 1283x717 u1 and 1280x720 u2 on the CPU build, and on upstream main's CPU build (640x360 u1, frame 17) | **kept** | bc53586 |
+| 25 | Fork depth 13 / 15 / 16 at 4K up2 (vs 14) | lane fill at 2 M samples | ±0.5 ms | 2 rounds: busy p95 16.39-16.43 (d13), 16.44-16.55 (d14), 16.63-16.69 (d15), 16.76-16.80 (d16); p99 17.0-18.4 for all | rejected (no change) | - |
+| 26 | Empty-space skipping on the GPU again (the committed `go.s`, `PLAY_SKIP=1`), at 4K up2 | steps per ray | -1 ms | 2 rounds: busy med 13.90-14.00 -> 14.70-14.80, p95 16.29-16.43 -> 17.43-17.52: slower, as in 6 | rejected | - |
+
+**4K up2 is not unlocked**: after 24 the busy p95 passes (16.49-16.57) but p99 does not
+(17.26-17.93), and it misses up to 2 frames a round. The rest of the frame is the render kernel
+(1920x1080 samples, the same work as 1080p native). The same build at 1080p native, one round:
+busy med 13.0 / p95 14.9 against 14.0 / 16.6 at 4K up2, with fill only 0.3 ms apart; the other
+~0.7 ms we put down to the 4K window's compositing in WSLg, which shares the GPU (not verified).
+25 and 26 failed in a row: the **GPU lane is blocked** at 4K up2 and 1440p native, on the render
+kernel's voxel read chain (12, 13).
+
+What the upstream hoist (12) is worth at these rungs, measured on a prototype that patches our
+emitted C (`tools/loc_patch.py`, never shipped; build `playq`, 3 rounds interleaved with
+`playp`, frames identical):
+
+| Rung | `playp` busy p95 | `playq` busy p95 | `playp` p99 | `playq` p99 | missed |
+|-|-|-|-|-|-|
+| 4K up2 | 16.42-16.68 | **15.06-15.37** | 17.05-18.92 | **15.98-16.20** | 2-4 -> 0 |
+| 1440p native (2 rounds) | 21.34-21.60 | 18.81-18.91 | 22.03-23.35 | 19.73-20.53 | 5-7 -> 4 |
+
+With the hoist, 4K up2 passes every clause of the rule. 1440p native needs more than the hoist.
+
+## CPU ladder (16 threads)
+
+The CPU lane is `play` on a plain CPU build (no GPU code), 16 threads, the same shipping rule.
+Before the ladder the render alone ran 320x180 at 5.8 ms and 640x360 at 17 ms (c16, bench).
+
+| # | Idea | Bottleneck | Expected | Measured | Verdict | Commit |
+|-|-|-|-|-|-|-|
+| 21 | Chunked leaves: a leaf traces 2^g consecutive samples (`BR_G` 4 / 6 / 8) instead of one strided sample per turn, so a worker's rays share cache lines | cache misses per ray on the CPU pool | -10% | bench c16 640x360, 4 rounds interleaved: rA 16.5-17.3 ms med, rG g0 16.9-17.9, g4 17.1-17.4, g8 16.7-17.9: inside the noise | rejected | - |
+| 22 | `Lane.gpu`: play's default fork depth 8 on the CPU (14 on the GPU), since a CPU turn pays per task and 2^8 leaves already cover 16 workers | pool overhead: 2^14 leaves for 16 threads | -2 ms | paced 640x360, shipping: busy med 18.1 -> 15.9, p95 21.3 -> 18.8, p99 23.0 -> 20.0 | **kept** | 82f2d13 |
+| 23 | Empty-space skipping (6) on the CPU, where branches are cheap: `go.s` in render.bend, the occupancy words in world.bend, `PLAY_SKIP` (1 on the CPU, 0 on the GPU); frames identical | steps per ray (35 -> 22) | -15% | bench c16 640x360, 3 rounds: 16.9-17.8 -> 14.8-15.9 med, p95 20.0-21.6 -> 17.4-17.6; paced 640x360: busy med 15.9 -> 14.8, p95 18.8 -> 17.2, p99 20.0 -> 18.5; GPU unchanged (skip off: +0.1 ms, noise) | **kept** | b529d0d |
+| 27 | Fewer workers (`--threads` 8 / 12 vs 16): less contention with the X server and the main thread | pool contention | ±1 ms | paced 640x360, 2 rounds: busy p95 17.2-17.8 (16), 18.7-19.4 (12), 19.3-22.2 (8) | rejected | - |
+| 28 | A world ceiling: a ray that climbs dry past the highest occupied slab (from the occupancy words, each frame) stops; frames identical at 640x360 frames 300 and 900, skip on and off | sky rays walking to the view's end | -1 ms | bench c16 640x360, 3 rounds: 15.1-15.6 -> 16.3-17.2 med (skip + ceiling 16.2-16.9); paced 640x360: busy p95 17.1-17.2 -> 18.06-18.09. The extra parameter and test in the ray loop cost more than the few rays it ends early. Patch parked in `scratch/ceil/ceil.patch`; not tried on the GPU | rejected | - |
+
+### CPU rungs (shipping build `playc`, 3 rounds, 900 frames, real window, paced)
+
+| Rung | Samples | busy p95 | busy p99 | missed / round | present p95 | Status |
+|-|-|-|-|-|-|-|
+| 320x180 native | 320x180 | 5.55-5.61 | 5.91-6.01 | 0 | 16.677-16.680 | **unlocked** |
+| 720p up2 | 320x180 | 5.62-5.71 | 5.98-6.00 | 0 | 16.678 | **unlocked** (upscaled) |
+| 1080p up2 | 480x270 | 10.58-10.69 | 11.18-11.34 | 0 | 16.677-16.678 | **unlocked** (upscaled), `media/cpu-1080p-up2-paced.png`: frame 900 identical to the GPU's and to the server's readback |
+| 640x360 native | 640x360 | 17.07-18.18 | 18.14-19.57 | 0 | 17.1-18.2 | not unlocked |
+
+**The CPU lane is blocked at 640x360** (27 and 28 failed in a row). The frame is the render, and
+at vd 8 it still takes 7.9 ms (bench, c16, skip on): about half of the frame does not scale
+with the view distance, so shorter walks cannot close the gap alone. What is left needs upstream:
+
+- the hoist (12), measured on the CPU: the bench -12 to -18% (rS 16.9-18.1 -> 14.4-15.4 med,
+  3 rounds); paced 640x360 with the hoist on the plain walk (skip off) busy p95 16.71-16.95 /
+  p99 17.87-18.10, and with it on both walks (`go` and `go.s`, a prototype patch with a read
+  helper in `scratch/hoist2/`) plus skip p95 16.65-16.85 / p99 17.72-17.91 against the shipping
+  build's 17.07-18.18 / 18.14-19.57. Not enough alone: p99 is still ~1 ms over;
+- the pool's scaling: 16 threads buy 2.6x over one (c1 44.5 ms -> c16 ~17 ms at 640x360) on an
+  8-core / 16-thread CPU. The pool fix (#1092, tree pool-229: rows only, early turn end, a yield
+  before sleeping) measured the same as main in the bench (inside the noise).
+
