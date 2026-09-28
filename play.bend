@@ -1,7 +1,8 @@
 # play.bend: bend-craft in a window.
 #
 #   WASD move, space jumps (swims up), the mouse or the arrows turn and look, left button or Q
-#   breaks, right button or E places, 1-9 pick the block, P pauses, Esc or closing quits.
+#   breaks, right button or E places, 1-9 pick the block, P pauses, Esc or closing quits. In mode 2
+#   a click holds the pointer (mouse look; PLAY_GRAB=0 turns it off) and Esc lets it go.
 #
 # Env (defaults in brackets): PLAY_W, PLAY_H [1280, 720] the window; PLAY_U [0] upscale (the
 # frame is rendered at W / 2^U x H / 2^U samples, each shown as 2^U x 2^U pixels); PLAY_TIER [3]

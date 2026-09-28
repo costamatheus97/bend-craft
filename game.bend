@@ -19,8 +19,8 @@
 # Keys: WASD move, space jumps (swims up in water), the arrows turn and
 # look, Q or the left button breaks, E or the right button places, 1-9
 # pick the hotbar slot, P pauses, Esc quits. The mouse turns and looks by
-# how far it moved since the last tick (no pointer grab: the window gives
-# positions only).
+# how far it moved since the last tick. In play.bend's window a click holds
+# the pointer (mouse look) and Esc lets it go (blit.c).
 import Base
 import ./fx.bend as Fx
 import ./world.bend as W

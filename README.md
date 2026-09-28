@@ -47,6 +47,13 @@ Keys: WASD move, space jumps (and swims up), the mouse or the arrows turn and
 look, the left button or Q breaks, the right button or E places, 1-9 pick the
 block, P pauses, Esc or closing the window quits.
 
+Mouse look: click in the window and it holds the pointer (hidden, kept in the
+window), so the mouse turns you as far as you move it; Esc lets the pointer go,
+and a second Esc quits. `PLAY_GRAB=0` turns the hold off. This is `Blit.frame`'s
+own event pump (`blit.c`), so it works on every runtime bend-craft builds on;
+with `PLAY_MODE=1` the mouse still turns you, but only while the pointer is in
+the window.
+
 Settings are environment variables. They are listed at the top of
 `play.bend`. The ones that matter most:
 

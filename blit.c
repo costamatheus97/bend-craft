@@ -121,27 +121,99 @@ static u32 bc_clip(int v, u32 most) {
 
 static void bc_shm_ev(XEvent* ev);
 
+// Mouse look (PLAY_GRAB=0 turns it off): a click in the window holds the pointer (hidden, kept in
+// the window, put back at the centre after each pump) and Esc or a lost focus lets it go; the
+// click and the Esc are not passed on. The positions the game sees are virtual in both states:
+// each motion adds its move to (bc_mx, bc_my). The game turns by the move since the last tick, so
+// the warp back to the centre, the grab and the release make no jump, and the look doesn't stop
+// at the window's edge.
+static int    bc_grab_ok = -1;
+static int    bc_grab, bc_seen, bc_lx, bc_ly;
+static u32    bc_mx = 1u << 30, bc_my = 1u << 30;
+static Cursor bc_blank = None;
+
+static void bc_grab_on(BcWin* win) {
+  if (bc_blank == None) {
+    char   z = 0;
+    Pixmap pm = XCreateBitmapFromData(win->dpy, win->win, &z, 1, 1);
+    XColor c = { 0 };
+    bc_blank = XCreatePixmapCursor(win->dpy, pm, pm, &c, &c, 0, 0);
+    XFreePixmap(win->dpy, pm);
+  }
+  if (XGrabPointer(win->dpy, win->win, True, ButtonPressMask | ButtonReleaseMask
+      | PointerMotionMask, GrabModeAsync, GrabModeAsync, win->win, bc_blank, CurrentTime)
+      == GrabSuccess) {
+    bc_grab = 1;
+  }
+}
+
+static void bc_grab_off(BcWin* win) {
+  if (bc_grab) {
+    XUngrabPointer(win->dpy, CurrentTime);
+    bc_grab = 0;
+  }
+}
+
 static void bc_pump(BcWin* win) {
   u32 w = win->img->width;
   u32 h = win->img->height;
+  if (bc_grab_ok < 0) {
+    const char* v = getenv("PLAY_GRAB");
+    bc_grab_ok = !(v != NULL && v[0] == '0');
+    XWindowAttributes a;
+    XGetWindowAttributes(win->dpy, win->win, &a);
+    XSelectInput(win->dpy, win->win, a.your_event_mask | EnterWindowMask | FocusChangeMask);
+  }
+  int moved = 0;
   while (XPending(win->dpy) > 0) {
     XEvent ev;
     XNextEvent(win->dpy, &ev);
     if (ev.type == KeyPress || ev.type == KeyRelease) {
-      bc_push(win, 0, bc_key(&ev.xkey), ev.type == KeyPress, 0, 0);
+      u32 k = bc_key(&ev.xkey);
+      if (k == 27 && bc_grab && ev.type == KeyPress) {
+        bc_grab_off(win);
+      } else {
+        bc_push(win, 0, k, ev.type == KeyPress, 0, 0);
+      }
     } else if (ev.type == ButtonPress || ev.type == ButtonRelease) {
       u32 b = ev.xbutton.button;
       if (b >= 1 && b <= 3) {
-        bc_push(win, 1, bc_clip(ev.xbutton.x, w), bc_clip(ev.xbutton.y, h),
-          b == 1 ? 0 : 4 - b, ev.type == ButtonPress);
+        if (bc_grab_ok && !bc_grab && ev.type == ButtonPress) {
+          bc_grab_on(win);
+        } else {
+          bc_push(win, 1, bc_mx, bc_my, b == 1 ? 0 : 4 - b, ev.type == ButtonPress);
+        }
       }
     } else if (ev.type == MotionNotify) {
-      bc_push(win, 2, bc_clip(ev.xmotion.x, w), bc_clip(ev.xmotion.y, h), 0, 0);
+      int x = ev.xmotion.x, y = ev.xmotion.y;
+      if (bc_seen) {
+        bc_mx += (u32)(x - bc_lx);
+        bc_my += (u32)(y - bc_ly);
+        moved = 1;
+      }
+      bc_lx = x;
+      bc_ly = y;
+      bc_seen = 1;
+    } else if (ev.type == EnterNotify) {
+      bc_lx = ev.xcrossing.x;   // back in the window, maybe far from where it left: no move
+      bc_ly = ev.xcrossing.y;
+      bc_seen = 1;
+    } else if (ev.type == FocusOut) {
+      bc_grab_off(win);
     } else if (ev.type == ClientMessage && (Atom)ev.xclient.data.l[0] == win->del) {
       bc_push(win, 3, 0, 0, 0, 0);
     } else {
       bc_shm_ev(&ev);
     }
+  }
+  if (moved) {
+    bc_push(win, 2, bc_mx, bc_my, 0, 0);
+  }
+  int cx = (int)(w / 2), cy = (int)(h / 2);
+  if (bc_grab && (bc_lx != cx || bc_ly != cy)) {
+    XWarpPointer(win->dpy, None, win->win, 0, 0, 0, 0, cx, cy);
+    bc_lx = cx;
+    bc_ly = cy;
   }
 }
 
