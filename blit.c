@@ -116,6 +116,8 @@ static u32 bc_clip(int v, u32 most) {
   return v < 0 ? 0 : (u32)v < most ? (u32)v : most - 1;
 }
 
+static void bc_shm_ev(XEvent* ev);
+
 static void bc_pump(BendWin* win) {
   u32 w = win->img->width;
   u32 h = win->img->height;
@@ -134,6 +136,8 @@ static void bc_pump(BendWin* win) {
       bc_push(win, 2, bc_clip(ev.xmotion.x, w), bc_clip(ev.xmotion.y, h), 0, 0);
     } else if (ev.type == ClientMessage && (Atom)ev.xclient.data.l[0] == win->del) {
       bc_push(win, 3, 0, 0, 0, 0);
+    } else {
+      bc_shm_ev(&ev);
     }
   }
 }
@@ -330,11 +334,13 @@ static void bc_pace(void) {
 }
 
 
-// MIT-SHM: the window's pixels in a shared-memory XImage, so XShmPutImage hands the server a
-// segment it reads in place, not the 4 bytes a pixel XPutImage writes down the socket (4.9 ms a
+// MIT-SHM: the window's pixels in shared-memory XImages, so XShmPutImage hands the server a
+// segment it reads in place, not the 4 bytes a pixel XPutImage writes down the socket (4.7 ms a
 // frame at 2560x1440 on WSLg). libXext is opened at run time (the game links only libX11); a
 // display without the extension, a remote one, or PLAY_SHM=0 keeps XPutImage. The put is
-// asynchronous: the next frame waits for the server (XSync) before it writes the segment again.
+// asynchronous, so there are two images: a frame fills the one the server has finished reading
+// (its ShmCompletion event came back), and waits for that event only when the server is still on
+// it (PLAY_SHM=1: one image, and an XSync before each fill).
 typedef struct {
   unsigned long shmseg;
   int           shmid;
@@ -342,19 +348,94 @@ typedef struct {
   Bool          readOnly;
 } BcShmSeg;
 
-static int     bc_shm = -1;      // -1 untried, 0 off, 1 on
-static XImage* bc_simg;
-static BcShmSeg bc_seg;
-static bool    bc_sput;          // a put the server may still be reading
-static Bool    (*bc_xq)(Display*);
-static XImage* (*bc_xci)(Display*, Visual*, unsigned int, int, char*, BcShmSeg*, unsigned int, unsigned int);
-static Bool    (*bc_xat)(Display*, BcShmSeg*);
-static Bool    (*bc_xput)(Display*, Drawable, GC, XImage*, int, int, int, int, unsigned int, unsigned int, Bool);
-static int     bc_xerr;
+typedef struct {          // XShmCompletionEvent
+  int           type;
+  unsigned long serial;
+  Bool          send_event;
+  Display*      display;
+  Drawable      drawable;
+  int           major_code;
+  int           minor_code;
+  unsigned long shmseg;
+  unsigned long offset;
+} BcShmDone;
+
+static int      bc_shm = -1;     // -1 untried, 0 off, 1 on
+static int      bc_nimg;         // shared images: 1 or 2
+static XImage*  bc_simg[2];
+static BcShmSeg bc_seg[2];
+static bool     bc_inuse[2];     // a put the server has not finished reading
+static u32      bc_cur;          // the image this frame fills
+static int      bc_evdone = -1;  // the ShmCompletion event type
+static Bool     (*bc_xq)(Display*);
+static int      (*bc_xev)(Display*);
+static XImage*  (*bc_xci)(Display*, Visual*, unsigned int, int, char*, BcShmSeg*, unsigned int, unsigned int);
+static Bool     (*bc_xat)(Display*, BcShmSeg*);
+static Bool     (*bc_xput)(Display*, Drawable, GC, XImage*, int, int, int, int, unsigned int, unsigned int, Bool);
+static int      bc_xerr;
+
+static void bc_shm_ev(XEvent* ev) {
+  if (ev->type == bc_evdone) {
+    BcShmDone* d = (BcShmDone*)ev;
+    for (int i = 0; i < bc_nimg; i += 1) {
+      if (bc_seg[i].shmseg == d->shmseg) {
+        bc_inuse[i] = false;
+      }
+    }
+  }
+}
+
+static Bool bc_is_done(Display* d, XEvent* ev, XPointer arg) {
+  return ev->type == bc_evdone;
+}
 
 static int bc_xerr_h(Display* d, XErrorEvent* ev) {
   bc_xerr = 1;
   return 0;
+}
+
+static XImage* bc_shm_img(BendWin* win, BcShmSeg* seg) {
+  Display* d = win->dpy;
+  int scr = DefaultScreen(d);
+  XImage* src = win->img;
+  XImage* im = bc_xci(d, DefaultVisual(d, scr), DefaultDepth(d, scr), ZPixmap, NULL, seg,
+    src->width, src->height);
+  if (im == NULL) {
+    return NULL;
+  }
+  if (im->bits_per_pixel != 32 || im->byte_order != src->byte_order
+      || im->bytes_per_line != src->width * 4 || im->red_mask != src->red_mask
+      || im->green_mask != src->green_mask || im->blue_mask != src->blue_mask) {
+    XDestroyImage(im);
+    return NULL;
+  }
+  seg->shmid = shmget(IPC_PRIVATE, (size_t)im->bytes_per_line * im->height, IPC_CREAT | 0600);
+  if (seg->shmid < 0) {
+    XDestroyImage(im);
+    return NULL;
+  }
+  seg->shmaddr = im->data = shmat(seg->shmid, NULL, 0);
+  seg->readOnly = False;
+  if (seg->shmaddr == (char*)-1) {
+    shmctl(seg->shmid, IPC_RMID, NULL);
+    im->data = NULL;
+    XDestroyImage(im);
+    return NULL;
+  }
+  XSync(d, False);
+  int (*old)(Display*, XErrorEvent*) = XSetErrorHandler(bc_xerr_h);
+  bc_xerr = 0;
+  Bool ok = bc_xat(d, seg);
+  XSync(d, False);
+  XSetErrorHandler(old);
+  shmctl(seg->shmid, IPC_RMID, NULL);   // freed once both sides detach (at exit at the latest)
+  if (!ok || bc_xerr) {
+    shmdt(seg->shmaddr);
+    im->data = NULL;
+    XDestroyImage(im);
+    return NULL;
+  }
+  return im;
 }
 
 static void bc_shm_init(BendWin* win) {
@@ -368,56 +449,43 @@ static void bc_shm_init(BendWin* win) {
     return;
   }
   bc_xq   = (Bool (*)(Display*))dlsym(lib, "XShmQueryExtension");
+  bc_xev  = (int (*)(Display*))dlsym(lib, "XShmGetEventBase");
   bc_xci  = (XImage* (*)(Display*, Visual*, unsigned int, int, char*, BcShmSeg*, unsigned int, unsigned int))
     dlsym(lib, "XShmCreateImage");
   bc_xat  = (Bool (*)(Display*, BcShmSeg*))dlsym(lib, "XShmAttach");
   bc_xput = (Bool (*)(Display*, Drawable, GC, XImage*, int, int, int, int, unsigned int, unsigned int, Bool))
     dlsym(lib, "XShmPutImage");
-  if (!bc_xq || !bc_xci || !bc_xat || !bc_xput || !bc_xq(win->dpy)) {
+  if (!bc_xq || !bc_xev || !bc_xci || !bc_xat || !bc_xput || !bc_xq(win->dpy)) {
     return;
   }
-  Display* d = win->dpy;
-  int scr = DefaultScreen(d);
-  XImage* src = win->img;
-  XImage* im = bc_xci(d, DefaultVisual(d, scr), DefaultDepth(d, scr), ZPixmap, NULL, &bc_seg,
-    src->width, src->height);
-  if (im == NULL) {
+  bc_simg[0] = bc_shm_img(win, &bc_seg[0]);
+  if (bc_simg[0] == NULL) {
     return;
   }
-  if (im->bits_per_pixel != 32 || im->byte_order != src->byte_order
-      || im->bytes_per_line != src->width * 4 || im->red_mask != src->red_mask
-      || im->green_mask != src->green_mask || im->blue_mask != src->blue_mask) {
-    XDestroyImage(im);
-    return;
+  bc_nimg = 1;
+  if (!(v != NULL && v[0] == '1')) {
+    bc_simg[1] = bc_shm_img(win, &bc_seg[1]);
+    bc_nimg = bc_simg[1] != NULL ? 2 : 1;
   }
-  bc_seg.shmid = shmget(IPC_PRIVATE, (size_t)im->bytes_per_line * im->height, IPC_CREAT | 0600);
-  if (bc_seg.shmid < 0) {
-    XDestroyImage(im);
-    return;
-  }
-  bc_seg.shmaddr = im->data = shmat(bc_seg.shmid, NULL, 0);
-  bc_seg.readOnly = False;
-  if (bc_seg.shmaddr == (char*)-1) {
-    shmctl(bc_seg.shmid, IPC_RMID, NULL);
-    im->data = NULL;
-    XDestroyImage(im);
-    return;
-  }
-  XSync(d, False);
-  int (*old)(Display*, XErrorEvent*) = XSetErrorHandler(bc_xerr_h);
-  bc_xerr = 0;
-  Bool ok = bc_xat(d, &bc_seg);
-  XSync(d, False);
-  XSetErrorHandler(old);
-  shmctl(bc_seg.shmid, IPC_RMID, NULL);   // freed once both sides detach (at exit at the latest)
-  if (!ok || bc_xerr) {
-    shmdt(bc_seg.shmaddr);
-    im->data = NULL;
-    XDestroyImage(im);
-    return;
-  }
-  bc_simg = im;
+  bc_evdone = bc_xev(win->dpy);   // + ShmCompletion (0)
   bc_shm = 1;
+}
+
+// Waits until the server has read the image this frame fills (the events that come meanwhile
+// are queued for the pump as they are).
+static void bc_shm_wait(BendWin* win) {
+  if (bc_nimg == 1) {
+    if (bc_inuse[0]) {
+      XSync(win->dpy, False);
+      bc_inuse[0] = false;
+    }
+    return;
+  }
+  while (bc_inuse[bc_cur]) {
+    XEvent ev;
+    XIfEvent(win->dpy, &ev, bc_is_done, NULL);
+    bc_shm_ev(&ev);
+  }
 }
 
 static Term bc_frame(Env e, BendWin* win, Term fb, u32 ws, u32 hs, u32 u) {
@@ -441,17 +509,17 @@ static Term bc_frame(Env e, BendWin* win, Term fb, u32 ws, u32 hs, u32 u) {
     if (bc_shm < 0) {
       bc_shm_init(win);
     }
-    if (bc_sput) {
-      XSync(win->dpy, False);   // the server has read the last frame's segment
-      bc_sput = false;
-    }
     bc_pump(win);
+    if (bc_shm == 1) {
+      bc_shm_wait(win);
+    }
   }
   u64 t1 = io_tick();
   u32 w = win->img->width;
   u32 h = win->img->height;
-  XImage* img = bc_shm == 1 && bc_simg->width == (int)w && bc_simg->height == (int)h ? bc_simg : win->img;
-  bc_fill(e, (u32*)img->data, w, h, fb, ws, hs, u, img == bc_simg);
+  XImage* img = bc_shm == 1 && bc_simg[bc_cur]->width == (int)w && bc_simg[bc_cur]->height == (int)h
+    ? bc_simg[bc_cur] : win->img;
+  bc_fill(e, (u32*)img->data, w, h, fb, ws, hs, u, img != win->img);
   if (bc_hw) {
     bc_w = w;
     bc_h = h;
@@ -475,9 +543,10 @@ static Term bc_frame(Env e, BendWin* win, Term fb, u32 ws, u32 hs, u32 u) {
     }
     bc_wake = wake;
     GC gc = DefaultGC(win->dpy, DefaultScreen(win->dpy));
-    if (img == bc_simg) {
-      bc_xput(win->dpy, win->win, gc, img, 0, 0, 0, 0, w, h, False);
-      bc_sput = true;
+    if (img != win->img) {
+      bc_xput(win->dpy, win->win, gc, img, 0, 0, 0, 0, w, h, bc_nimg == 2);
+      bc_inuse[bc_cur] = true;
+      bc_cur = (bc_cur + 1) % bc_nimg;
     } else {
       XPutImage(win->dpy, win->win, gc, img, 0, 0, 0, 0, w, h);
     }
