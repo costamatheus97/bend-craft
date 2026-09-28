@@ -17,6 +17,11 @@ How things are measured, unless an entry says otherwise:
 - **Paced window.** `bench/abp.sh` (play.bend, the scripted walk, 900 frames, the real WSLg window,
   paced at 60 Hz, hw harness): `busy_ms` (the frame's work, everything but the pace's sleep) and
   `present_ms` (the interval between two presents).
+- **Rung unlock (coordinator's ruling, paced rungs).** On the shipping build (TREE_GPU, no hw
+  splice, no gprof, no per-frame log), a real window, 900 frames, 3 rounds or more, every round:
+  busy p95 <= 16.7 ms, busy p99 <= 16.7 ms, at most 1 missed frame (a present interval over
+  25 ms), present p95 within 16.75 ms (a sanity check: it sits at the pace's floor). Unpaced
+  rungs keep frame p95 <= 16.7, p99 <= 20.
 - Machine noise is large: the same GPU binary gives medians from 8.4 to 11.3 ms at 720p across
   rounds, and the first run after a pause is often the fastest. Nothing below is called a gain
   unless it holds round by round.
@@ -59,7 +64,7 @@ The primary ray's length sets the time; shading and the shadow ray (tier 3) add 
 | 10 | Drop the hit bookkeeping (hx, hy, hz, ht, hf): a solid cell freezes the ray, so the last state is the hit | registers and moves per step | -5 to -10% | CPU equal; GPU slower in 5 of 5 rounds (e.g. 7.61 -> 9.65, 10.09 -> 11.14): freezing makes the next read's address wait on this read's value (the chain 8 removed), which also confirms 8 matters | rejected | - |
 | 11 | Read one cell ahead: the next word's read issues before this cell's shading decision (`scratch/render.rL.bend`) | the chain read -> decide -> read | -10% | 6 rounds vs rS: 9.4-9.8 vs 9.2-10.9 median, p95 13.4-14.2 vs 12.1-13.6: p95 worse in 5 of 6 | rejected | - |
 | 12 | Hoist the shared array's location out of the ray loop (`tools/loc_patch.py`: `blk_loc` once per leaf in our emitted C, not once per read) | every read of `w` goes through `blk_loc`, whose load of the refcount cell ends in `s_waitcnt vmcnt(0)`: the in-order counter makes each voxel read wait for every earlier load, so a lane never has two reads in flight | -10 to -20% | 6 rounds vs rS: median equal (9.0-10.5 vs 8.3-10.6), **p95 11.6-12.0 vs 12.0-13.2 (-1 ms)** | **needs an upstream change** (the compiler's redirect read; upstream draft #999 and our #1084 do this hoist). Not shipped: the game must not depend on a patched C | c56fe00 (the harness tool) |
-| 13 | Two cells a step (the DDA advances twice per loop iteration, so two independent reads per iteration) | the same read chain | -10% | alone: equal (9.0-10.0 vs 8.7-10.3 median, p95 12.2-12.9 vs 12.0-13.4); **with 12**: p95 10.2-10.8 vs rS 12.1-12.9 and rP 11.7-12.0, median equal | rejected alone; worth it only with 12 (upstream) | - |
+| 13 | Two cells a step (the DDA advances twice per loop iteration, so two independent reads per iteration) | the same read chain | -10% | alone: equal (9.0-10.0 vs 8.7-10.3 median, p95 12.2-12.9 vs 12.0-13.4); **with 12**: p95 10.2-10.8 vs rS 12.1-12.9 and rP 11.7-12.0, median equal | rejected alone; with 12, **needs an upstream change** (the same hoist as 12: upstream draft #999, our #1084) | - |
 | 14 | Direct tiles: leaves of 2^TL x 2^TL samples that build the window Image themselves (`BR_IMG=2`), no framebuffer, no conversion pass | the conversion pass | -2 ms | TL 2: 19.7 ms vs 7.6 (the bench at 64 x 36 tile leaves), TL 3 no better: the leaves allocate Image nodes, and allocation on the GPU is dear | rejected | - |
 | 15 | **Blit.frame** (`blit.c`, `PLAY_MODE=2`, now the default): bend-craft's own foreign effect copies the flat framebuffer straight into the window's XImage (both 0x00RRGGBB): one device-to-host copy on the GPU lane (a `gpu_sync` only when a host write dirtied the framebuffer's chunks), a memcpy on the CPU, a nearest upscale when rendering below the window. No Image quadtree, no conversion pass, no `window_fill` walk | the show stage: conversion (inside the render bang) + `window_fill` (2.1 ms at 720p) + the twin's full `gpu_sync` | -2 to -3 ms busy | paced window 720p, 5 rounds interleaved vs mode 1: **busy p95 14.94-15.31 vs 16.52-16.76 (-1.4 ms, 5 of 5)**, busy med 13.2-13.6 vs 14.0-14.4, fill 1.62 vs 2.1; offscreen 720p frame 13.1 / p95 14.2 vs 13.1 / 15.7; CPU c16 720p show 0.3 ms vs 12.8. Pixels (P6 of the window's last frame): mode 2 = mode 1 at 320x180 on gpu (N = 1, 2, 3, 17) and on the CPU build at 4 threads (N = 17, plus several sizes and upscales before the commit); upstream main checked in mode 2 only (N = 17, same hash); at 720p N = 900 mode 2 on gpu = mode 2 on c16 (lanes, not modes, compared there) | **kept** | 85632ae |
 
@@ -94,3 +99,34 @@ also counts the effect's return into Bend, which is not on the display's cadence
 Mode 2, paced, real window: render 11.7 med / 13.1 p95 (GPU wait 9.6, up 0.77, down 0.94), fill
 2.2 / 2.8, busy med 16.7 / p95 18.6 / p99 21.1, present p95 18.6. Bottleneck: the render kernel
 (the voxel read chain, 12 and 13 above) plus the fixed turn cost (up + down 1.7 ms).
+
+## GPU ladder: the show stage (after the 720p rung)
+
+With the render at 10-11 ms (720p samples), the rest of the frame is the show: the copy down,
+the upscale and the put. Profile at 2560x1440 up2 (`PLAY_HW=1`, shipping build, after 15): sim
+0.3, render 11.0 / 12.8 p95, fill 3.1 (copy down + upscale), **put 4.7 med / 7.7 p95** (XPutImage
+writes 14.7 MB down the X socket), busy med 18.9 / p95 24.4, 23-36 frames missed a round.
+
+| # | Idea | Bottleneck | Expected | Measured | Verdict | Commit |
+|-|-|-|-|-|-|-|
+| 16 | MIT-SHM: the window's pixels in a shared-memory XImage and XShmPutImage (libXext opened at run time; XPutImage when the display lacks it, or `PLAY_SHM=0`); the next frame XSyncs before it writes the segment again | the put | put 4.7 -> < 0.5 ms at 1440p, 1.3 -> < 0.1 at 720p | 3 rounds interleaved: put 1.29 -> 0.034 ms (720p), 4.71 -> 0.034 (1440p up2); busy p95 15.0-15.4 -> 13.6-13.8 (720p), 24.4-24.8 -> 17.9-18.1 (1440p up2), misses 23-36 -> 0. A server-side capture of the live window (`media/window-capture-720p-shm.png`) shows the frame | **kept** | e4691ff |
+| 17 | Upscale: widen each sample row once (two pixels a 64-bit store at u = 1) and memcpy its copies, instead of one indexed load a pixel on every row | the upscale inside fill | -0.5 ms at 1440p up2 | 3 rounds: fill med -0.1 to -0.4 at 1440p up2, busy p95 -0.07 to -0.29; neutral at 1080p up2. Same pixels as mode 1 at u 1-3, odd sizes | kept (small) | 50572df |
+| 18 | Page-lock the copy's host target (`cuMemHostRegister` on the shared image and on the upscale's staging buffer; `PLAY_PIN=0` turns it off) so the device-to-host copy is direct, not through a pageable bounce | the copy down (1.6 ms for 3.7 MB) | copy -1 ms at 720p | 3 rounds (same binary, `PLAY_PIN` 0 vs 1): fill 1.59-1.65 -> 0.48 (720p), 3.4-3.6 -> 1.8 (1440p up2); busy p95 13.6-13.7 -> 12.6-12.7 (720p), 17.8-17.9 -> 15.9-16.5 (1440p up2) | **kept** | 50572df |
+| 19 | Two shared images, each reused on its ShmCompletion event: a frame fills the image the server is done with (`PLAY_SHM=1`: one image and an XSync) | the XSync of 16 (the server still reading the last frame): pump 1.5 ms p95, 2.1 p99 at 1440p up2 | busy p99 -1.5 ms at 1440p up2 | 3 rounds: pump p95 1.26-1.57 -> 0.03-0.05; busy p95 16.0-16.4 -> 15.2-15.4, **p99 17.1-17.7 -> 16.06-16.29** (1440p up2); 720p unchanged. Live-window capture `media/window-capture-1440p-up2-shm2.png` | **kept** | edf0d0a |
+
+### Rungs unlocked (shipping build, rule above)
+
+| Rung | Samples | Rounds | busy p95 | busy p99 | missed / round | present p95 | Screenshot |
+|-|-|-|-|-|-|-|-|
+| 720p native | 1280x720 | 3 (after 15) + 1 (after 19) | 14.97-15.48 -> 12.53 | 15.46-16.27 -> 13.11 | 0 | 16.684-16.692 | `media/gpu-720p-paced.png` |
+| 1080p up2 | 960x540 | 4 (after 15) + 1 (after 19) | 14.76-15.51 -> 10.33 | 15.52-16.56 -> 10.64 | 0 | 16.688-16.711 | `media/gpu-1080p-up2-paced.png` |
+| **1080p native** | 1920x1080 | 5 (after 19) | 14.61-14.89 | 15.27-15.86 | 0-1 | 16.682-16.695 | `media/gpu-1080p-paced.png` |
+| **1440p up2** | 1280x720 | 4 (after 19) | 15.22-15.37 | 16.06-16.31 | 0-1 | 16.685-16.693 | `media/gpu-1440p-up2-paced.png` |
+
+Frame 900 of the walk is byte-identical on the GPU and on c16 at 1080p up2, 1080p native and
+1440p up2. The 1440p-up2 margin at p99 is 0.4-0.6 ms: the thinnest of the four.
+
+Not unlocked (1 round each, after 19): 1440p native (not run yet: 2560x1440 samples, render
+alone is over the budget at 1080p's 12.9 ms busy scaled by 1.8x), 4K up2 (1920x1080 samples:
+busy p95 22.0, fill 6.1), 4K up4 (960x540 samples: busy p95 17.3, p99 18.3, fill 6.0 of which
+the upscale into 33 MB is most).
