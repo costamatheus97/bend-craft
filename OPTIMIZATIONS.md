@@ -188,17 +188,61 @@ Before the ladder the render alone ran 320x180 at 5.8 ms and 640x360 at 17 ms (c
 | 720p up2 | 320x180 | 5.62-5.71 | 5.98-6.00 | 0 | 16.678 | **unlocked** (upscaled) |
 | 1080p up2 | 480x270 | 10.58-10.69 | 11.18-11.34 | 0 | 16.677-16.678 | **unlocked** (upscaled), `media/cpu-1080p-up2-paced.png`: frame 900 identical to the GPU's and to the server's readback |
 | 640x360 native | 640x360 | 17.07-18.18 | 18.14-19.57 | 0 | 17.1-18.2 | not unlocked |
+| 640x360 native | 640x360 | 16.61-16.92 (17.07-18.18 before 29) | 17.70-18.26 (18.14-19.57 before 29) | 0 | 16.76-16.92 | not unlocked: p99 ~1-1.5 ms over (passes with the pool change in 31, which needs upstream) |
 
-**The CPU lane is blocked at 640x360** (27 and 28 failed in a row). The frame is the render, and
-at vd 8 it still takes 7.9 ms (bench, c16, skip on): about half of the frame does not scale
-with the view distance, so shorter walks cannot close the gap alone. What is left needs upstream:
+After 27 and 28 the coordinator asked for three more ideas before calling the CPU lane blocked:
+precomputed lighting (b), a coarse-depth prepass (c), and the root cause of the pool's thread
+scaling (d). Each is below, measured the same way.
 
-- the hoist (12), measured on the CPU: the bench -12 to -18% (rS 16.9-18.1 -> 14.4-15.4 med,
-  3 rounds); paced 640x360 with the hoist on the plain walk (skip off) busy p95 16.71-16.95 /
-  p99 17.87-18.10, and with it on both walks (`go` and `go.s`, a prototype patch with a read
-  helper in `scratch/hoist2/`) plus skip p95 16.65-16.85 / p99 17.72-17.91 against the shipping
-  build's 17.07-18.18 / 18.14-19.57. Not enough alone: p99 is still ~1 ms over;
-- the pool's scaling: 16 threads buy 2.6x over one (c1 44.5 ms -> c16 ~17 ms at 640x360) on an
-  8-core / 16-thread CPU. The pool fix (#1092, tree pool-229: rows only, early turn end, a yield
-  before sleeping) measured the same as main in the bench (inside the noise).
+| # | Idea | Bottleneck | Expected | Measured | Verdict | Commit |
+|-|-|-|-|-|-|-|
+| 29 | **Sun table** (b, the sun half): per column, the height from which a ray toward the sun meets nothing. A corridor of columns within 1.6 blocks of the sun's path, each with its top and the climb the ray makes to reach it, built once per sun and raised by `W.set` when a block is added (a removal leaves it high, which is only conservative). A shadow ray that starts at or above it is lit without a walk. `PLAY_SKIP` bit 1 (on by default on the CPU, off on the GPU); frames identical (tests/render.bend: towers and open ground, table on and off, same hashes; tests/game.bend a view with the table) | shadow rays: one walk per lit face, most of them through open sky | -1 ms on the CPU | paced 640x360, shipping, 3 rounds: busy p95 17.2-17.4 -> **16.61-16.64 (passes)**, p99 18.0-18.5 -> 17.70-17.96 (does not); 4 more rounds of the committed build (`playc5`) 16.61-16.92 / 17.83-18.26. GPU (table on): busy med +0.5 ms, fill p95 1.3 -> 2.2 (the host reads the table's world words each frame, which costs on the twin), so it is off there | **kept on the CPU**, rejected on the GPU | 29877ee |
+| - | **Ambient occlusion precomputed** (b, the AO half): the per-face corner occupancy stored with the world, not read per ray | tier 2's AO reads (the neighbour cells of every hit) | at most the tier's cost | bound, not built: tier 1 -> tier 2 costs 0.3-0.6 ms at c16 640x360 (bench, interleaved), so a free AO would save at most that, below the 1.0-1.5 ms p99 gap. An exact table needs the 26 neighbour bits of every cell, a word a cell (16 MB at lc 4, twice the world array), so it cannot live in the array's upper half; a per-column or per-slab table would change the pixels (it would be a separate, flagged option) | not built (bound below the gap, no room for the exact table) | - |
+| 30 | **Coarse-depth prepass** (c): a distance table per 4-block group (the Chebyshev distance in groups to the nearest occupied group, capped at 4, kept by `W.set`), then one cone-traced ray per 8x8 tile that finds the smallest t no ray of the tile can hit before; every ray of the tile resumes its DDA exactly at that t (the per-axis event counts, the face of the last event, the step cap less the steps skipped). `PLAY_SKIP` bit 2 | empty space in front of the camera | -2 ms | frames identical with it on and off (CPU bench at 5 cameras, eye 12-20 blocks over the ground, skip 0/4 and 1/5; GPU bench 64x36 and 1920x1080, the same hashes). **High eye**, where tiles resolve: CPU c16 640x360 13.1 -> 8.0 ms (up 16), 11.8 -> 6.0 (up 20); GPU 1920x1080 samples 9.7-11.0 -> 8.8-9.5 (up 16). **At the play height** (bench eye 2 blocks over the ground): 0 of 3600 tiles resolve (the eye's own group is next to occupied ground, so its distance is 0 or 1 and the cone cannot move), so the pass only costs: CPU +0.2 to +1.0 ms, GPU 1920x1080 +1.5 to +2.2 ms. A per-cell distance table would let the cone leave the ground; at 4 bits a cell it needs half the upper half (2 MB at lc 4), more than is left after the atlas, the sun table and the occupancy words, so it would need a second array. Not built | rejected at the play camera; the patch is parked in `scratch/pre/coarse.patch` | - |
+| 31 | **The pool's thread scaling** (d, root cause): see below. The prototype fix grows the CPU frontier to 8 x the workers (`tools/grain_patch.py`, a patch to our emitted C) | the pool's fixed grain: 16 units a turn | -1 ms | bench c16 640x360, interleaved, 3 rounds: 12.8-13.4 -> 11.8-11.9 ms (d 8); c8 14.7-15.4 -> 13.8-14.1. **Paced 640x360, shipping build plus the patch, 4 rounds interleaved with the same build unpatched: busy p95 15.25-15.39 vs 16.61-16.92, p99 15.90-16.33 vs 17.83-18.26, 0 missed, present p95 16.68 vs 16.76-16.92: the rung passes in every round.** Frame 900 of both is the same bytes | **needs an upstream change** (a one-line change in `cube_run`'s grow target); the game does not ship a patched runtime | the harness tool with this log |
 
+**Why 16 threads buy only ~4.7x (31).** Measured on the bench at c16 640x360 (d 8, skip 3,
+BR_BANG=0), with patches to our emitted C that count and time (in `scratch/`, not shipped):
+
+- **The VM is not the ceiling by itself.** A plain C control in this WSL2 VM scales 6.9x at 8
+  threads and 8.2x at 16 (ALU), 6.2-7.5x and 6.6-8.5x (random reads over 256 KB to 256 MB), and 5.7x /
+  8.1x in bursts of ~5 ms with a condvar between them, as the pool runs. Steal time 0. Bend
+  gets 4.1x at c8 and 4.7-5.2x at c16 (c1 54-55 ms, c4 15.7-18.2, c8 13.4, c16 10.6-11.6).
+- **Not allocation.** 819 `heap_alloc` calls a frame for 230,400 samples (0.0036 a sample, about
+  3 a leaf), about 4 bank pops a frame; a ray's state never goes through the heap.
+- **Not memory bandwidth or cache size.** The lc 2 world (a small fraction of lc 4's, well inside the 32 MB L3)
+  scales the same as lc 4 at the same spot (c4 14.7-16.1, c8 13.1-13.7, c16 11.9-12.0 against
+  c1 55.4-55.7).
+- **Not false sharing on the framebuffer.** A writer that drops the store, and one that puts
+  each sample on its own cache line, time the same as the real one at c1, c8 and c16 (c8
+  12.8-13.5 for all three). This agrees with 21.
+- **Not the shared array's refcount line.** The hoist (12) saves the same fraction at c1
+  (-13.6%) as at c16 (-9 to -17%); contention would make it save more at c16.
+- **Not the fixed cost of a turn.** A 16x16 frame takes 0.27 ms at c1 and 0.94 at c16; the
+  grow turn is 0.3-0.55 ms at d 8.
+- **The cause: a fixed grain on shared cores.** A render turn always has exactly 16 units with
+  work (rows of 16 rings), at c8 or c16 and at fork depth 4 to 12: `cube_run` grows the
+  frontier only to ceil(workers / 8) cube rows, and a unit runs its whole subtree. At c1 and c2
+  the 16 units take 2.92-3.13 ms each. From c4 up some take up to 5.7 ms (1.9x). That is what two
+  workers on one physical core look like (the host places the vCPUs, and the guest cannot prevent it (pinning inside WSL2 changes nothing: 4
+  threads on 0,1,2,3 time the same as on 0,2,4,6, within the noise), and it means this loop gets almost nothing
+  from SMT. With a
+  fixed grain the turn waits for the slowest unit: at c16 the workers' busy time is 6.6 ms mean
+  and 9.6 max, so 30% of the pool idles at the barrier; at c8 each worker runs exactly 2 units,
+  with the slowest pair at 11.3 ms against a mean of 9.0. More workers than CPUs (24 to 64) do
+  not help (more units, but more workers than cores too), and deeper trees do not either (still
+  16 units: the grow sets the count, not the tree). Growing the frontier to 8 x the workers (128 units at c16) balances the workers (at d 12,
+  7.5-8.3 ms busy each) and gives the -1 ms of 31. The rest of the gap to 8x is the shared cores themselves
+  (total CPU a frame 49 ms at c1, 79 at c8, 105 at c16).
+- The 2.6x quoted before 29 (c1 44.5 ms, c16 ~17) set a bench c1 frame against a paced c16 frame
+  in the window; on the same bench and camera it is 4.7-5.2x.
+
+**Where the CPU lane stands.** 640x360 native is not unlocked on the shipping build: p95 passes
+(16.61-16.92) and p99 is 1.0-1.5 ms over (17.70-18.26). Two changes would each take it, and both
+need upstream:
+
+- the pool's grain (31): 640x360 passes in 4 of 4 rounds with it (p99 15.90-16.33);
+  the pool fix measured before (#1092, tree pool-229: rows only, an early turn end, a yield before
+  sleeping) keeps the grow target, which is why it measured the same as main;
+- the hoist (12): -12 to -18% in the bench; with it on both walks the paced p99 was 17.72-17.91
+  before 29, so it would need 29 too, which was not measured together.

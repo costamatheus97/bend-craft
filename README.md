@@ -55,6 +55,10 @@ Settings are environment variables. They are listed at the top of
   samples, and each sample is shown as a 2^U-pixel square.
 - `PLAY_TIER` (3) and `PLAY_VD` (48): the shading tier and the view distance
   in blocks. Tier 3 at 48 is the default and what every number below uses.
+- `PLAY_SKIP`: shortcuts that keep the frames identical. Bit 0: empty-space skipping over the
+  occupancy words. Bit 1: the sun table (a shadow ray that starts above its column's height is
+  lit without a walk). The default is 3 on the CPU and 0 on the GPU, where neither helped (bit 1
+  costs 0.5 ms there).
 - `PLAY_MODE`: how a frame reaches the window. The default is 2 (`Blit.frame`)
   where `Blit.ok` says it runs, and 1 (`Window.frame`) everywhere else.
 
@@ -204,7 +208,10 @@ CPU lane, 16 threads (Ryzen 7 5800XT), same settings:
 | 720p up2 | 320x180 | 5.6-5.7 | 6.0 |
 | 1080p up2 | 480x270 | 10.6-10.7 | 11.2-11.3 |
 
-Not reached: 640x360 (p95 17.1-18.2, p99 18.1-19.6).
+Not reached: 640x360 (p95 16.6-16.9 passes, p99 17.7-18.3 does not). A prototype of an upstream
+change to the CPU pool (the frontier grown to 8 units a worker, not 1, so a worker that lands on a
+shared core does not hold up the frame) passes it in every round (p95 15.3-15.4, p99 15.9-16.3);
+see `OPTIMIZATIONS.md` 31, which also has the measurements behind the pool's scaling.
 
 `OPTIMIZATIONS.md` has every attempt and the rounds behind each number. The run log, with
 terrain and render sweeps, is `LOG.md`. Screenshots are in `media/`.
