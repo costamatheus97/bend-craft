@@ -184,7 +184,7 @@ def shown(s: G.Shown) -> String:
   shown.h(img, W.hash(fb))
 
 def view() -> String:
-  shown(G.view(G.View{64, 36, 3, 24, 7000, 30000}, 6n, 2n, run(script(), G.new(2n, 1, 20, 12)),
+  shown(G.view(G.View{64, 36, 3, 24, 7000, 30000, 1}, 6n, 2n, run(script(), G.new(2n, 1, 20, 12)),
     Array.new(U32, 12n, 0), Pix{0}))
 
 def main() -> IO(Unit):

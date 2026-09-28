@@ -784,26 +784,39 @@ def J.four(ra: Array<U32> & Image, rb: Array<U32> & Image, rc: Array<U32> & Imag
 def J.off(w: Array<U32>) -> Array<U32> & Image:
   (w, Pix{0})
 
+# The quadtree over tiles of t x t samples (tile: the straight-line leaf
+# for that size), k levels above them.
 @unsafe
-def I.node(+k: Nat, on: Bool, +x: U32, +y: U32, +wh: U32, +fb: Array<U32>, old: Four) ->
-  Array<U32> & Image:
+def I.node(~tile: Array<U32> -> U32 -> U32 -> U32 -> Array<U32> & Image, +t: U32, +k: Nat, on: Bool,
+  +x: U32, +y: U32, +wh: U32, +fb: Array<U32>, old: Four) -> Array<U32> & Image:
   match k on:
     case _ False{}:
       J.off(fb)
     case 0n True{}:
-      I.b16(fb, x, y, wh)
+      tile(fb, x, y, wh)
     case 1n+e True{}:
       Four{oa, ob, oc, od} = old
-      +s = U32.shln(16, e)
+      +s = U32.shln(t, e)
       +x1 = (x + s : U32)
       +y1 = (y + s : U32)
       +ws = U32.and(wh, 65535)
       +hs = U32.shrn(wh, 16n)
-      a b c d = I.node(e, True{}, x, y, wh, fb, Img.open(oa))
-        I.node(e, (x1 < ws : U32), x1, y, wh, fb, Img.open(ob))
-        I.node(e, (y1 < hs : U32), x, y1, wh, fb, Img.open(oc))
-        I.node(e, ((x1 < ws) && (y1 < hs) : U32), x1, y1, wh, fb, Img.open(od))
+      a b c d = I.node(~tile, t, e, True{}, x, y, wh, fb, Img.open(oa))
+        I.node(~tile, t, e, (x1 < ws : U32), x1, y, wh, fb, Img.open(ob))
+        I.node(~tile, t, e, (y1 < hs : U32), x, y1, wh, fb, Img.open(oc))
+        I.node(~tile, t, e, ((x1 < ws) && (y1 < hs) : U32), x1, y1, wh, fb, Img.open(od))
       J.four(a, b, c, d)
+
+# The Image of fb over 2^(k + 4) samples, as tiles of 2^tl (tl 2, 3 or 4)
+# with k + 4 - tl levels above them.
+def I.tree(+tl: Nat, +k: Nat, +wh: U32, fb: Array<U32>, old: Four) -> Array<U32> & Image:
+  match tl:
+    case 2n:
+      I.node(~I.b4, 4, Nat.add(k, 2n), True{}, 0, 0, wh, fb, old)
+    case 3n:
+      I.node(~I.b8, 8, Nat.add(k, 1n), True{}, 0, 0, wh, fb, old)
+    case _:
+      I.node(~I.b16, 16, k, True{}, 0, 0, wh, fb, old)
 
 # The frame and its image: Out{w, fb, img}.
 type Out is Type:
@@ -813,15 +826,105 @@ def O.fin(w: Array<U32>, r: Array<U32> & Image) -> Out:
   (fb, img) = r
   Out{w, fb, img}
 
-def O.img(+k: Nat, +ws: U32, +hs: U32, old: Image, p: P2) -> Out:
+def O.img(+tl: Nat, +k: Nat, +ws: U32, +hs: U32, old: Image, p: P2) -> Out:
   P2{w, fb} = p
-  O.fin(w, I.node(k, True{}, 0, 0, U32.or(ws, U32.shln(hs, 16n)), fb, Img.open(old)))
+  O.fin(w, I.tree(tl, k, U32.or(ws, U32.shln(hs, 16n)), fb, Img.open(old)))
 
 # fill, then the Image of fb over 2^(k + 4) samples: both in one call (one
 # GPU turn under !), the last image dropped inside it.
-def draw(~wr: Array<U32> -> U32 -> U32 -> Array<U32>, +c: Cam, +d: Nat, +k: Nat, w: Array<U32>, fb: Array<U32>, old: Image) -> Out:
+def draw.t(~wr: Array<U32> -> U32 -> U32 -> Array<U32>, +tl: Nat, +c: Cam, +d: Nat, +k: Nat,
+  w: Array<U32>, fb: Array<U32>, old: Image) -> Out:
   Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc} = c
-  O.img(k, ws, hs, old, fill(~wr, c, d, w, fb))
+  O.img(tl, k, ws, hs, old, fill(~wr, c, d, w, fb))
+
+# draw with the conversion's tiles of 16 x 16 samples.
+def draw(~wr: Array<U32> -> U32 -> U32 -> Array<U32>, +c: Cam, +d: Nat, +k: Nat, w: Array<U32>,
+  fb: Array<U32>, old: Image) -> Out:
+  draw.t(~wr, 4n, c, d, k, w, fb, old)
+
+# The direct image
+# ----------------
+# The same frame rendered straight into the window Image, no framebuffer:
+# the fork tree is the quadtree itself, down to tiles of 4 x 4 samples
+# (one leaf each), off-frame quadrants one black Pix. One pass instead of
+# two (render, then convert). tests/render.bend checks it gives the same
+# Image as draw.
+
+def D.pix(r: Array<U32> & U32) -> Array<U32> & Image:
+  (w, +c) = r
+  (w, Pix{c})
+
+def D.b1.if(on: Bool, w: Array<U32>, +x: U32, +y: U32, +c: Cam) -> Array<U32> & Image:
+  match on:
+    case True{}:
+      D.pix(pixel(w, x, y, c))
+    case False{}:
+      (w, Pix{0})
+
+def D.b1.at(+x: U32, +y: U32, +c: Cam, w: Array<U32>) -> Array<U32> & Image:
+  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc} = c
+  D.b1.if(((x < ws) && (y < hs) : U32), w, x, y, c)
+
+def D.b1(w: Array<U32>, x0: U32, y0: U32, c0: Cam) -> Array<U32> & Image:
+  D.b1.at(x0, y0, c0, w)
+
+def D.c(
+  ~f: Array<U32> -> U32 -> U32 -> Cam -> Array<U32> & Image, +x: U32, +y: U32, +s: U32, +k: Cam,
+  a: Image, b: Image, r: Array<U32> & Image
+) -> Array<U32> & Image:
+  (w, c) = r
+  Q.fin(a, b, c, f(w, (x + s : U32), (y + s : U32), k))
+
+def D.b(
+  ~f: Array<U32> -> U32 -> U32 -> Cam -> Array<U32> & Image, +x: U32, +y: U32, +s: U32, +k: Cam,
+  a: Image, r: Array<U32> & Image
+) -> Array<U32> & Image:
+  (w, b) = r
+  D.c(~f, x, y, s, k, a, b, f(w, x, (y + s : U32), k))
+
+def D.a(
+  ~f: Array<U32> -> U32 -> U32 -> Cam -> Array<U32> & Image, +x: U32, +y: U32, +s: U32, +k: Cam,
+  r: Array<U32> & Image
+) -> Array<U32> & Image:
+  (w, a) = r
+  D.b(~f, x, y, s, k, a, f(w, (x + s : U32), y, k))
+
+def D.go(
+  ~f: Array<U32> -> U32 -> U32 -> Cam -> Array<U32> & Image, w: Array<U32>, +x: U32, +y: U32,
+  +s: U32, +k: Cam
+) -> Array<U32> & Image:
+  D.a(~f, x, y, s, k, f(w, x, y, k))
+
+def D.b2(w: Array<U32>, x0: U32, y0: U32, c0: Cam) -> Array<U32> & Image:
+  D.go(~D.b1, w, x0, y0, 1, c0)
+
+def D.b4(w: Array<U32>, x0: U32, y0: U32, c0: Cam) -> Array<U32> & Image:
+  D.go(~D.b2, w, x0, y0, 2, c0)
+
+@unsafe
+def D.node(+k: Nat, on: Bool, +x: U32, +y: U32, +c: Cam, +w: Array<U32>, old: Four) ->
+  Array<U32> & Image:
+  match k on:
+    case _ False{}:
+      J.off(w)
+    case 0n True{}:
+      D.b4(w, x, y, c)
+    case 1n+e True{}:
+      Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc} = c
+      Four{oa, ob, oc, od} = old
+      +s = U32.shln(4, e)
+      +x1 = (x + s : U32)
+      +y1 = (y + s : U32)
+      a b d1 d2 = D.node(e, True{}, x, y, c, w, Img.open(oa))
+        D.node(e, (x1 < ws : U32), x1, y, c, w, Img.open(ob))
+        D.node(e, (y1 < hs : U32), x, y1, c, w, Img.open(oc))
+        D.node(e, ((x1 < ws) && (y1 < hs) : U32), x1, y1, c, w, Img.open(od))
+      J.four(a, b, d1, d2)
+
+# The frame straight into the window Image over 2^(k + 2) samples (bang it:
+# one GPU turn, one pass): (w, the image); the last image dropped inside it.
+def direct(+c: Cam, +k: Nat, w: Array<U32>, old: Image) -> Array<U32> & Image:
+  D.node(k, True{}, 0, 0, c, w, Img.open(old))
 
 # Output
 # ------

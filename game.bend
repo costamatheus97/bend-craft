@@ -402,9 +402,11 @@ def show.p(+p: P) -> String:
 # ---------
 
 # What a frame looks like: samples, shading tier, view distance (blocks),
-# the sun's elevation and azimuth.
+# the sun's elevation and azimuth, and how it is made (mode 0: straight
+# into the window Image, render.bend's direct; 1: into the framebuffer,
+# then converted, render.bend's draw: the framebuffer then holds the frame).
 type View is Data:
-  View{ws: U32, hs: U32, tier: U32, vd: U32, sel: U32, saz: U32}
+  View{ws: U32, hs: U32, tier: U32, vd: U32, sel: U32, saz: U32, mode: U32}
 
 type Shown is Type:
   Shown{g: Game, fb: Array<U32>, img: Image}
@@ -414,20 +416,34 @@ def view.fin(+p: P, +lc: Nat, o: R.Out) -> Shown:
   Shown{Game{w, p, lc}, fb, img}
 
 def view.cam(+v: View, +p: P, +lc: Nat, +a: Aim) -> R.Cam:
-  View{ws, hs, tier, vd, sel, saz} = v
+  View{ws, hs, tier, vd, sel, saz, mode} = v
   P{x, y, z, vx, vy, vz, yaw, pitch, ground, slot, lmx, lmy, lmb} = p
   Aim{ax, ay, az} = a
   R.cam.ui(R.cam(x, (y + eye() : U32), z, yaw, pitch, ws, hs, vd, tier, sel, saz, lc), slot, ax, ay,
     az)
 
+def view.direct(+p: P, +lc: Nat, fb: Array<U32>, r: Array<U32> & Image) -> Shown:
+  (w, img) = r
+  Shown{Game{w, p, lc}, fb, img}
+
+def view.m(+mode: U32, +c: R.Cam, +d: Nat, +k: Nat, +p: P, +lc: Nat, w: Array<U32>, fb: Array<U32>,
+  old: Image) -> Shown:
+  match mode:
+    case 0:
+      view.direct(p, lc, fb, R.direct!(c, Nat.add(k, 2n), w, old))
+    case _:
+      view.fin(p, lc, R.draw!(~W.Put.set, c, d, k, w, fb, old))
+
 def view.go(+v: View, +d: Nat, +k: Nat, fb: Array<U32>, old: Image, r: Game & Aim) -> Shown:
+  View{ws, hs, tier, vd, sel, saz, mode} = v
   (g, +a) = r
   Game{w, +p, +lc} = g
-  view.fin(p, lc, R.draw!(~W.Put.set, view.cam(v, p, lc, a), d, k, w, fb, old))
+  view.m(mode, view.cam(v, p, lc, a), d, k, p, lc, w, fb, old)
 
 # The game's frame (render(state)): the view from the player's eye with the
 # hotbar, the crosshair and the aimed block outlined, rendered into fb
 # (fork depth d) and converted to the window Image over 2^(k + 4) samples,
-# in one bang (one GPU turn); the last frame's image old is dropped in it.
+# or (mode 0) rendered straight into that Image, in one bang (one GPU
+# turn); the last frame's image old is dropped in it.
 def view(+v: View, +d: Nat, +k: Nat, g: Game, fb: Array<U32>, old: Image) -> Shown:
   view.go(v, d, k, fb, old, aim(g))

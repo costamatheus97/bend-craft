@@ -92,10 +92,52 @@ def bad.s(+lc: Nat, +ws: U32, +hs: U32, +x: U32, +z: U32, p: W.P2) -> U32:
   bad.p((ws * hs : U32), R.fill!(~W.Put.count, R.cam(U32.shln(x, 16n), 3276800, U32.shln(z, 16n), 8192,
     63000, ws, hs, 48, 3, 6000, 3000, lc), 5n, R.tex(lc, w), Array.new(U32, 12n, 0)))
 
+# The direct image (render.bend's direct: no framebuffer) against draw's,
+# both with the hotbar and the crosshair on, compared as pictures (a hash
+# that sees a Pix over a square as the square's pixels, so the trees may
+# differ where they cut off-frame quadrants).
+def cmb(+a: U32, +b: U32, +c: U32, +d: U32) -> U32:
+  +h4 = Rng.mix(d)
+  +h3 = Rng.mix((c * 3 + h4 : U32))
+  +h2 = Rng.mix((b + h3 : U32))
+  Rng.mix(U32.xor(a, h2))
+
+def ch.pix(+c: U32, n: Nat) -> U32:
+  match n:
+    case 0n:
+      Rng.mix((c + 1 : U32))
+    case 1n+p:
+      +h = ch.pix(c, p)
+      cmb(h, h, h, h)
+
+def ch(img: Image, +n: Nat) -> U32:
+  match img:
+    case Pix{+c}:
+      ch.pix(c, n)
+    case Qua{a, b, c, d}:
+      cmb(ch(a, Nat.sub(n, 1n)), ch(b, Nat.sub(n, 1n)), ch(c, Nat.sub(n, 1n)), ch(d, Nat.sub(n, 1n)))
+
+def same.fin(+n: Nat, +h1: U32, r: Array<U32> & Image) -> String:
+  (w, img) = r
+  +h2 = ch(img, n)
+  "direct tier 3 ui same-picture " ++ U32.show(Fx.b2u(U32.is_eq(h1, h2))) ++ " " ++ U32.show(h2)
+
+def same.out(+c: R.Cam, +kd: Nat, +n: Nat, o: R.Out) -> String:
+  R.Out{w, fb, img} = o
+  same.fin(n, ch(img, n), R.direct!(c, kd, w, Pix{0}))
+
+def same(+lc: Nat, +ws: U32, +hs: U32, +x: U32, +z: U32, +k: Nat, +kd: Nat, +n: Nat, +fl: Nat,
+  p: W.P2) -> String:
+  W.P2{hm, w} = p
+  +c = R.cam.ui(R.cam(U32.shln(x, 16n), 3276800, U32.shln(z, 16n), 8192, 63000, ws, hs, 48, 3, 6000,
+    3000, lc), 4, 4294967295, 4294967295, 4294967295)
+  same.out(c, kd, n, R.draw!(~W.Put.set, c, 5n, k, R.tex(lc, w), Array.new(U32, fl, 0), Pix{0}))
+
 def main() -> IO(Unit):
   do IO<Unit>:
     IO.print(cfg.p(2n, 64, 36, 20, 12, 8192, 62536, 48, 2n, scene(2n, 1)))
     IO.print("bounds tier 3 bad " ++ U32.show(bad.s(2n, 64, 36, 20, 12, scene(2n, 1))))
+    IO.print(same(2n, 64, 36, 20, 12, 2n, 4n, 6n, 12n, scene(2n, 1)))
 #|render tier 0 d 0 fb 2348678706 img 1950189419
 #|render tier 1 d 0 fb 913317061 img 4035579857
 #|render tier 2 d 0 fb 2772643765 img 3082700560
@@ -103,3 +145,4 @@ def main() -> IO(Unit):
 #|render tier 3 d 4 fb 1236939315 img 1458418881
 #|render tier 3 d 11 fb 1236939315 img 1458418881
 #|bounds tier 3 bad 0
+#|direct tier 3 ui same-picture 1 1148512812
