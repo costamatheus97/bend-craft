@@ -717,3 +717,13 @@
 2026-09-28 04:13:52 tail4k rc=0 ms=17027 load=2.12 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_HW=1 PLAY_W=3840 PLAY_H=2160 PLAY_U=1 PLAY_LOG=1 build/playp --threads 16 --gpu 3GB
 2026-09-28 04:17:22 cship-playc5 rc=0 ms=46703 load=0.17 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_HW=1 PLAY_W=1280 PLAY_H=720 PLAY_U=0 build/playc5 --threads 16
 2026-09-28 04:18:09 cship-playcg8 rc=0 ms=44540 load=5.03 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_HW=1 PLAY_W=1280 PLAY_H=720 PLAY_U=0 build/playcg8 --threads 16
+2026-09-28 04:19:45 test-game-build rc=0 ms=165 load=5.03 drv=0 | /tmp/tmp.gbwrU09Mu5/game.g --gpu-build
+2026-09-28 04:19:45 test-game rc=0 ms=338 load=5.03 drv=0 | /tmp/tmp.gbwrU09Mu5/game.g --threads 16 --gpu 3GB
+2026-09-28 04:20:13 test-render-build rc=0 ms=165 load=3.65 drv=0 | /tmp/tmp.gbwrU09Mu5/render.g --gpu-build
+2026-09-28 04:20:13 test-render rc=0 ms=1260 load=3.65 drv=0 | /tmp/tmp.gbwrU09Mu5/render.g --threads 16 --gpu 3GB
+2026-09-28 04:20:25 test-render_full-build rc=0 ms=156 load=3.20 drv=0 | /tmp/tmp.gbwrU09Mu5/render_full.g --gpu-build
+2026-09-28 04:20:25 test-render_full rc=0 ms=3282 load=3.20 drv=0 | /tmp/tmp.gbwrU09Mu5/render_full.g --threads 16 --gpu 3GB
+2026-09-28 04:20:34 test-world-build rc=0 ms=104 load=3.18 drv=0 | /tmp/tmp.gbwrU09Mu5/world.g --gpu-build
+2026-09-28 04:20:34 test-world rc=0 ms=351 load=3.18 drv=0 | /tmp/tmp.gbwrU09Mu5/world.g --threads 16 --gpu 3GB
+2026-09-28 04:20:40 test-world_full-build rc=0 ms=104 load=3.25 drv=0 | /tmp/tmp.gbwrU09Mu5/world_full.g --gpu-build
+2026-09-28 04:20:40 test-world_full rc=0 ms=736 load=3.07 drv=0 | /tmp/tmp.gbwrU09Mu5/world_full.g --threads 16 --gpu 3GB
