@@ -61,7 +61,7 @@ The primary ray's length sets the time; shading and the shadow ray (tier 3) add 
 | 12 | Hoist the shared array's location out of the ray loop (`tools/loc_patch.py`: `blk_loc` once per leaf in our emitted C, not once per read) | every read of `w` goes through `blk_loc`, whose load of the refcount cell ends in `s_waitcnt vmcnt(0)`: the in-order counter makes each voxel read wait for every earlier load, so a lane never has two reads in flight | -10 to -20% | 6 rounds vs rS: median equal (9.0-10.5 vs 8.3-10.6), **p95 11.6-12.0 vs 12.0-13.2 (-1 ms)** | **needs an upstream change** (the compiler's redirect read; upstream draft #999 and our #1084 do this hoist). Not shipped: the game must not depend on a patched C | c56fe00 (the harness tool) |
 | 13 | Two cells a step (the DDA advances twice per loop iteration, so two independent reads per iteration) | the same read chain | -10% | alone: equal (9.0-10.0 vs 8.7-10.3 median, p95 12.2-12.9 vs 12.0-13.4); **with 12**: p95 10.2-10.8 vs rS 12.1-12.9 and rP 11.7-12.0, median equal | rejected alone; worth it only with 12 (upstream) | - |
 | 14 | Direct tiles: leaves of 2^TL x 2^TL samples that build the window Image themselves (`BR_IMG=2`), no framebuffer, no conversion pass | the conversion pass | -2 ms | TL 2: 19.7 ms vs 7.6 (the bench at 64 x 36 tile leaves), TL 3 no better: the leaves allocate Image nodes, and allocation on the GPU is dear | rejected | - |
-| 15 | **Blit.frame** (`blit.c`, `PLAY_MODE=2`, now the default): bend-craft's own foreign effect copies the flat framebuffer straight into the window's XImage (both 0x00RRGGBB): one device-to-host copy on the GPU lane (a `gpu_sync` only when a host write dirtied the framebuffer's chunks), a memcpy on the CPU, a nearest upscale when rendering below the window. No Image quadtree, no conversion pass, no `window_fill` walk | the show stage: conversion (inside the render bang) + `window_fill` (2.1 ms at 720p) + the twin's full `gpu_sync` | -2 to -3 ms busy | paced window 720p, 5 rounds interleaved vs mode 1: **busy p95 14.94-15.31 vs 16.52-16.76 (-1.4 ms, 5 of 5)**, busy med 13.2-13.6 vs 14.0-14.4, fill 1.62 vs 2.1; offscreen 720p frame 13.1 / p95 14.2 vs 13.1 / 15.7; CPU c16 720p show 0.3 ms vs 12.8. Pixels identical to mode 1 on c1, c16, main and gpu (P6 of the window, N = 1, 2, 3, 17 and 900) | **kept** | 85632ae |
+| 15 | **Blit.frame** (`blit.c`, `PLAY_MODE=2`, now the default): bend-craft's own foreign effect copies the flat framebuffer straight into the window's XImage (both 0x00RRGGBB): one device-to-host copy on the GPU lane (a `gpu_sync` only when a host write dirtied the framebuffer's chunks), a memcpy on the CPU, a nearest upscale when rendering below the window. No Image quadtree, no conversion pass, no `window_fill` walk | the show stage: conversion (inside the render bang) + `window_fill` (2.1 ms at 720p) + the twin's full `gpu_sync` | -2 to -3 ms busy | paced window 720p, 5 rounds interleaved vs mode 1: **busy p95 14.94-15.31 vs 16.52-16.76 (-1.4 ms, 5 of 5)**, busy med 13.2-13.6 vs 14.0-14.4, fill 1.62 vs 2.1; offscreen 720p frame 13.1 / p95 14.2 vs 13.1 / 15.7; CPU c16 720p show 0.3 ms vs 12.8. Pixels (P6 of the window's last frame): mode 2 = mode 1 at 320x180 on gpu (N = 1, 2, 3, 17) and on the CPU build at 4 threads (N = 17, plus several sizes and upscales before the commit); upstream main checked in mode 2 only (N = 17, same hash); at 720p N = 900 mode 2 on gpu = mode 2 on c16 (lanes, not modes, compared there) | **kept** | 85632ae |
 
 ### Rung 720p paced: unlocked (GPU, native 1280x720, default tier 3 / vd 48)
 
@@ -77,7 +77,13 @@ real WSLg window, 900 frames of the scripted walk each:
 | 5 | 16.685 | 16.722 | 15.21 | 15.60 | 0 |
 
 Mode 1 in the same rounds: present p95 16.745-16.789, p99 17.25-17.87, busy p95 16.52-16.76. Frame
-900 is byte-identical on the GPU and on c16 (`media/gpu-720p-paced.png`). Metric caveat: the
+900 is byte-identical on the GPU and on c16 (`media/gpu-720p-paced.png`).
+
+The shipping build (TREE_GPU CUDA, no hw harness splice, no gprof, no per-frame log;
+`build/playg`), 3 rounds, same walk: present p95 16.687-16.692 / p99 16.706-16.723, busy p95
+14.97-15.48 / p99 15.46-16.27, 0 missed; frame 900 has the same hash. With `PLAY_SHOT` set (a
+3.7 MB copy each frame) busy p95 rises to 15.7 and present p95 to 16.69-16.72: the present metric
+sits at the pace's floor and moves on noise; busy p95 is the headroom. Metric caveat: the
 present interval is the pace's nanosleep wake-to-wake, whose jitter alone is ~0.02 ms; mode 1 missed
 p95 by 0.05-0.09 ms with 0 missed frames, so busy p95 (1.4-1.7 ms of headroom in mode 2) is the
 robust number. Play's own `loop` (Bend's clock, iteration to iteration) reads p95 17.1-17.2: it

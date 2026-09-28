@@ -397,3 +397,12 @@
 2026-09-28 01:12:55 abp-play2_l0 rc=0 ms=15428 load=3.32 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_LOG=1 BEND_GPROF=1 DISPLAY_ON=1 PLAY_HW=1 PLAY_MODE=1 build/play2_l0 --threads 16 --gpu 3GB
 2026-09-28 01:13:11 abp-play2_l0 rc=0 ms=15340 load=3.31 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_LOG=1 BEND_GPROF=1 DISPLAY_ON=1 PLAY_HW=1 PLAY_MODE=2 build/play2_l0 --threads 16 --gpu 3GB
 2026-09-28 01:13:42 shot720 rc=0 ms=15334 load=2.63 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_HW=1 PLAY_SHOT=/tmp/claude-1000/-home-costamatheus97-vt-brainstorm-ai-bend2-hip/da5577c9-5150-4697-88b6-9b24e8da3ac3/scratchpad/w720.ppm build/play2_l0 --threads 16 --gpu 3GB
+2026-09-28 01:17:35 playg-build rc=0 ms=37133 load=0.88 drv=0 | build/playg --gpu-build
+2026-09-28 01:18:12 playg-smoke rc=95 ms=255 load=1.92 drv=0 | PLAY_W=320 PLAY_H=180 PLAY_DEMO=1 PLAY_N=17 PLAY_HW=1 build/playg --threads 16 --gpu 3GB
+2026-09-28 01:18:19 playg-smoke rc=0 ms=551 load=1.76 drv=0 | PLAY_W=320 PLAY_H=180 PLAY_DEMO=1 PLAY_N=17 PLAY_HW=1 PLAY_SHOT=/tmp/claude-1000/-home-costamatheus97-vt-brainstorm-ai-bend2-hip/da5577c9-5150-4697-88b6-9b24e8da3ac3/scratchpad/pg17.ppm build/playg --threads 16 --gpu 3GB
+2026-09-28 01:18:25 playg-720 rc=0 ms=15317 load=1.62 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_HW=1 PLAY_SHOT=/tmp/claude-1000/-home-costamatheus97-vt-brainstorm-ai-bend2-hip/da5577c9-5150-4697-88b6-9b24e8da3ac3/scratchpad/pg900.ppm build/playg --threads 16 --gpu 3GB
+2026-09-28 01:18:40 playg-720 rc=0 ms=15337 load=2.15 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_HW=1 PLAY_SHOT=/tmp/claude-1000/-home-costamatheus97-vt-brainstorm-ai-bend2-hip/da5577c9-5150-4697-88b6-9b24e8da3ac3/scratchpad/pg900.ppm build/playg --threads 16 --gpu 3GB
+2026-09-28 01:18:56 playg-720 rc=0 ms=15329 load=2.35 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_HW=1 PLAY_SHOT=/tmp/claude-1000/-home-costamatheus97-vt-brainstorm-ai-bend2-hip/da5577c9-5150-4697-88b6-9b24e8da3ac3/scratchpad/pg900.ppm build/playg --threads 16 --gpu 3GB
+2026-09-28 01:19:18 playg-720 rc=0 ms=15319 load=2.50 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_HW=1 build/playg --threads 16 --gpu 3GB
+2026-09-28 01:19:33 playg-720 rc=0 ms=15321 load=2.75 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_HW=1 build/playg --threads 16 --gpu 3GB
+2026-09-28 01:19:49 playg-720 rc=0 ms=15307 load=2.75 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_HW=1 build/playg --threads 16 --gpu 3GB
