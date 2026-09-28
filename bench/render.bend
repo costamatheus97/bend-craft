@@ -4,7 +4,7 @@
 #   view distance (blocks); BR_X, BR_Z [128, 128] eye column; BR_UP [2] eye height over the
 #   ground (blocks); BR_YAW [8192], BR_PITCH [63000] (65536 a turn); BR_SPIN [0] yaw per frame;
 #   BR_D [13] fork depth; BR_K [5] Image quadtree levels over 16 x 16 tiles (2^(k+4) >= W, H);
-#   BR_N [10] frames; BR_BANG [1] (0: a plain call, the CPU lane); BR_IMG [1] (0: the flat
+#   BR_SEL [6000], BR_SAZ [3000] the sun's elevation and azimuth; BR_N [10] frames; BR_BANG [1] (0: a plain call, the CPU lane); BR_IMG [1] (0: the flat
 #   framebuffer only, no window Image); BR_PPM [none] write the last frame there (P6).
 # Prints: frame <i> us <us> per frame, then: render ... fb <hash> img <hash>.
 import Base
@@ -19,7 +19,7 @@ def Clock.us() -> IO(U32):
 
 type Cfg is Data:
   Cfg{lc: Nat, ws: U32, hs: U32, tier: U32, vd: U32, px: U32, py: U32, pz: U32, yaw: U32,
-    pitch: U32, spin: U32, d: Nat, k: Nat, bang: U32, img: U32}
+    pitch: U32, spin: U32, d: Nat, k: Nat, bang: U32, img: U32, sel: U32, saz: U32}
 
 def Env.u32(m: Maybe<&2, U32>, +default: U32) -> U32:
   match m:
@@ -48,8 +48,8 @@ def ih(img: Image) -> U32:
       Rng.mix(U32.xor(ih(a), Rng.mix((ih(b) + Rng.mix((ih(c) * 3 + Rng.mix(ih(d)) : U32)) : U32))))
 
 def cam(+g: Cfg, +i: U32) -> R.Cam:
-  Cfg{lc, ws, hs, tier, vd, px, py, pz, yaw, pitch, spin, d, k, bang, img} = g
-  R.cam(px, py, pz, (yaw + spin * i : U32), pitch, ws, hs, vd, tier, lc)
+  Cfg{lc, ws, hs, tier, vd, px, py, pz, yaw, pitch, spin, d, k, bang, img, sel, saz} = g
+  R.cam(px, py, pz, (yaw + spin * i : U32), pitch, ws, hs, vd, tier, sel, saz, lc)
 
 def draw.bang(+c: R.Cam, +d: Nat, +k: Nat, w: Array<U32>, fb: Array<U32>, old: Image) -> R.Out:
   R.draw!(~W.Put.set, c, d, k, w, fb, old)
@@ -74,7 +74,7 @@ def frame.img(img: U32, +bang: U32, +c: R.Cam, +d: Nat, +k: Nat, w: Array<U32>, 
       draw.bang(c, d, k, w, fb, old)
 
 def frame(+g: Cfg, +i: U32, o: R.Out) -> R.Out:
-  Cfg{lc, ws, hs, tier, vd, px, py, pz, yaw, pitch, spin, d, k, bang, img} = g
+  Cfg{lc, ws, hs, tier, vd, px, py, pz, yaw, pitch, spin, d, k, bang, img, sel, saz} = g
   R.Out{w, fb, old} = o
   frame.img(img, bang, cam(g, i), d, k, w, fb, old)
 
@@ -102,7 +102,7 @@ def ppm(r: Result<&1, &1, U32 & String, String>, +ws: U32, +hs: U32, fb: Array<U
       ppm.fin(path, R.ppm(ws, hs, fb))
 
 def fin.h(+g: Cfg, +hi: U32, r: Array<U32> & U32) -> IO(Unit):
-  Cfg{lc, ws, hs, tier, vd, px, py, pz, yaw, pitch, spin, d, k, bang, img} = g
+  Cfg{lc, ws, hs, tier, vd, px, py, pz, yaw, pitch, spin, d, k, bang, img, sel, saz} = g
   (fb, +hf) = r
   do IO<Unit>:
     Unit <- IO.print("render lc " ++ Nat.show(lc) ++ " " ++ U32.show(ws) ++ "x" ++ U32.show(hs)
@@ -134,12 +134,12 @@ def eye(+up: U32, r: Array<U32> & U32) -> U32:
   (U32.shln((Fx.sel((g < W.sea() : U32), W.sea(), g) + up : U32), 16n) + 32768 : U32)
 
 def start(+n: Nat, +g0: Cfg, +up: U32, p: W.P2) -> IO(Unit):
-  Cfg{lc, ws, hs, tier, vd, px, py, pz, yaw, pitch, spin, d, k, bang, img} = g0
+  Cfg{lc, ws, hs, tier, vd, px, py, pz, yaw, pitch, spin, d, k, bang, img, sel, saz} = g0
   W.P2{hm, w} = p
   +x = U32.shrn(px, 16n)
   +z = U32.shrn(pz, 16n)
   loop(n, 0, Cfg{lc, ws, hs, tier, vd, px, eye(up, hm[W.col(lc, x, z)]), pz, yaw, pitch, spin, d,
-    k, bang, img}, R.Out{R.tex(lc, w), Array.new(U32, 22n, 0), Pix{0}})
+    k, bang, img, sel, saz}, R.Out{R.tex(lc, w), Array.new(U32, 22n, 0), Pix{0}})
 
 def scene(+lc: Nat, +seed: U32) -> W.P2:
   W.gen!(~W.Put.set, 13n, lc, seed, W.hm.new(lc), W.new(lc))
@@ -163,6 +163,9 @@ def main() -> IO(Unit):
     +n : U32 <- num("BR_N", 10)
     +bang : U32 <- num("BR_BANG", 1)
     +img : U32 <- num("BR_IMG", 1)
+    +sel : U32 <- num("BR_SEL", 6000)
+    +saz : U32 <- num("BR_SAZ", 3000)
     start(U32.to_nat(n), Cfg{U32.to_nat(lc), ws, hs, tier, vd, (U32.shln(x, 16n) + 32768 : U32), 0,
-      (U32.shln(z, 16n) + 32768 : U32), yaw, pitch, spin, U32.to_nat(d), U32.to_nat(k), bang, img},
+      (U32.shln(z, 16n) + 32768 : U32), yaw, pitch, spin, U32.to_nat(d), U32.to_nat(k), bang, img, sel,
+      saz},
       up, scene(U32.to_nat(lc), seed))

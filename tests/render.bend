@@ -1,5 +1,5 @@
 # tests/render.bend: frames of a 64 x 64 x 64 world (lc = 2), 64 x 36 samples, on every lane.
-# - tiers 0 (flat), 1 (textures) and 2 (+ occlusion) at fork depth 0 (one leaf), then tier 2 at
+# - tiers 0 (flat), 1 (textures), 2 (+ occlusion), 3 (+ shadows) at fork depth 0 (one leaf), then tier 3 at
 #   depths 4 and 11 (one sample a leaf): the framebuffer hash must not depend on the depth, and
 #   the window Image (converted in the same bang) must hash the same on every lane;
 # - the bounds pass: the frame with a counting writer writes every sample exactly once and
@@ -33,13 +33,13 @@ def fr.out(o: R.Out) -> Fr:
 
 def cam(+g: Cfg, +tier: U32) -> R.Cam:
   Cfg{lc, ws, hs, px, py, pz, yaw, pitch, vd, k} = g
-  R.cam(px, py, pz, yaw, pitch, ws, hs, vd, tier, lc)
+  R.cam(px, py, pz, yaw, pitch, ws, hs, vd, tier, 6000, 3000, lc)
 
 def tier.of(+j: U32) -> U32:
-  Fx.sel((j < 3 : U32), j, 2)
+  Fx.sel((j < 4 : U32), j, 3)
 
 def d.of(+j: U32) -> Nat:
-  U32.to_nat(Fx.sel((j < 3 : U32), 0, Fx.sel(U32.is_eq(j, 3), 4, 11)))
+  U32.to_nat(Fx.sel((j < 4 : U32), 0, Fx.sel(U32.is_eq(j, 4), 4, 11)))
 
 def frame(+g: Cfg, +j: U32, w: Array<U32>, fb: Array<U32>) -> Fr:
   Cfg{lc, ws, hs, px, py, pz, yaw, pitch, vd, k} = g
@@ -67,7 +67,7 @@ def cfg.p(+lc: Nat, +ws: U32, +hs: U32, +x: U32, +z: U32, +yaw: U32, +pitch: U32
   +k: Nat, p: W.P2) -> String:
   W.P2{hm, w} = p
   +py = eye(lc, x, z, hm[W.col(lc, x, z)])
-  go(4n, 0, Cfg{lc, ws, hs, (U32.shln(x, 16n) + 32768 : U32), py, (U32.shln(z, 16n) + 32768 : U32), yaw, pitch, vd, k},
+  go(5n, 0, Cfg{lc, ws, hs, (U32.shln(x, 16n) + 32768 : U32), py, (U32.shln(z, 16n) + 32768 : U32), yaw, pitch, vd, k},
     frame(Cfg{lc, ws, hs, (U32.shln(x, 16n) + 32768 : U32), py, (U32.shln(z, 16n) + 32768 : U32), yaw, pitch, vd, k},
       0, R.tex(lc, w), Array.new(U32, 12n, 0)))
 
@@ -90,15 +90,16 @@ def bad.p(+n: U32, p: R.P2) -> U32:
 def bad.s(+lc: Nat, +ws: U32, +hs: U32, +x: U32, +z: U32, p: W.P2) -> U32:
   W.P2{hm, w} = p
   bad.p((ws * hs : U32), R.fill!(~W.Put.count, R.cam(U32.shln(x, 16n), 3276800, U32.shln(z, 16n), 8192,
-    63000, ws, hs, 48, 2, lc), 5n, R.tex(lc, w), Array.new(U32, 12n, 0)))
+    63000, ws, hs, 48, 3, 6000, 3000, lc), 5n, R.tex(lc, w), Array.new(U32, 12n, 0)))
 
 def main() -> IO(Unit):
   do IO<Unit>:
     IO.print(cfg.p(2n, 64, 36, 20, 12, 8192, 62536, 48, 2n, scene(2n, 1)))
-    IO.print("bounds tier 2 bad " ++ U32.show(bad.s(2n, 64, 36, 20, 12, scene(2n, 1))))
-#|render tier 0 d 0 fb 446781203 img 1173241212
-#|render tier 1 d 0 fb 502142382 img 1328174197
-#|render tier 2 d 0 fb 3718301065 img 1069094829
-#|render tier 2 d 4 fb 3718301065 img 1069094829
-#|render tier 2 d 11 fb 3718301065 img 1069094829
-#|bounds tier 2 bad 0
+    IO.print("bounds tier 3 bad " ++ U32.show(bad.s(2n, 64, 36, 20, 12, scene(2n, 1))))
+#|render tier 0 d 0 fb 2348678706 img 1950189419
+#|render tier 1 d 0 fb 913317061 img 4035579857
+#|render tier 2 d 0 fb 2772643765 img 3082700560
+#|render tier 3 d 0 fb 1236939315 img 1458418881
+#|render tier 3 d 4 fb 1236939315 img 1458418881
+#|render tier 3 d 11 fb 1236939315 img 1458418881
+#|bounds tier 3 bad 0

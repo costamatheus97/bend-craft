@@ -38,29 +38,64 @@ import ./world.bend as W
 # o: the eye (16.16); f: the ray of the frame's centre; a, b: the ray's
 # change per two samples right and down (so a sample (sx, sy) looks along
 # f + (a (2 sx + 1 - ws) + b (2 sy + 1 - hs)) / 2); ws, hs: the samples;
-# tmax: the view distance as t (20.12); tier: the shading tier; lc: the
+# tmax: the view distance as t (20.12); tier: the shading tier; l: the
+# direction toward the sun (16.16, unit); snx, sny, snr: the sun's disc on
+# the screen, in samples (signed; snr 0 when the sun is behind); lc: the
 # world's size.
+type Cam3 is Data:
+  Cam3{a: U32, b: U32, c: U32}
+
 type Cam is Data:
   Cam{ox: U32, oy: U32, oz: U32, fx: U32, fy: U32, fz: U32, ax: U32, ay: U32, az: U32, bx: U32,
-    by: U32, bz: U32, ws: U32, hs: U32, tmax: U32, tier: U32, lc: Nat}
+    by: U32, bz: U32, ws: U32, hs: U32, tmax: U32, tier: U32, lx: U32, ly: U32, lz: U32, snx: U32,
+    sny: U32, snr: U32, lc: Nat}
 
 # v * 2 / ws, signed (v is 16.16 in [-1, 1]).
 def per(+v: U32, +ws: U32) -> U32:
   +q = U32.div((Fx.abs(v) * 2 : U32), ws)
   Fx.sel(Fx.isneg(v), Fx.neg(q), q)
 
+def dot(+ax: U32, +ay: U32, +az: U32, +bx: U32, +by: U32, +bz: U32) -> U32:
+  (Fx.mul(ax, bx) + Fx.mul(ay, by) + Fx.mul(az, bz) : U32)
+
+# a * h / z, signed a, z > 0.
+def proj(+a: U32, +h: U32, +z: U32) -> U32:
+  +q = U32.div((Fx.abs(a) * h : U32), z)
+  Fx.sel(Fx.isneg(a), Fx.neg(q), q)
+
+# The sun's disc on the screen from its direction in camera space (xr
+# right, yu up, zf forward): none (radius 0) when it is behind or far aside.
+def sun.at(+xr: U32, +yu: U32, +zf: U32, +ws: U32, +hs: U32) -> Cam3:
+  +on = Fx.slt(6554, zf)
+  +h = U32.shrn(ws, 1n)
+  +z = Fx.sel(on, zf, 65536)
+  Cam3{(h + proj(xr, h, z) : U32), (U32.shrn(hs, 1n) - proj(yu, h, z) : U32),
+    Fx.sel(on, (U32.div(ws, 40) + 1 : U32), 0)}
+
+def cam.fin(+px: U32, +py: U32, +pz: U32, +sy: U32, +cy: U32, +sp: U32, +cp: U32, +ws: U32,
+  +hs: U32, +vd: U32, +tier: U32, +lx: U32, +ly: U32, +lz: U32, +lc: Nat, +sn: Cam3) -> Cam:
+  Cam3{snx, sny, snr} = sn
+  Cam{px, py, pz, Fx.mul(cp, sy), sp, Fx.mul(cp, cy), per(cy, ws), 0, per(Fx.neg(sy), ws),
+    per(Fx.mul(sp, sy), ws), per(Fx.neg(cp), ws), per(Fx.mul(sp, cy), ws), ws, hs,
+    U32.shln(vd, 12n), tier, lx, ly, lz, snx, sny, snr, lc}
+
 # The camera at (px, py, pz), turned yaw and pitch (turns of 65536): yaw
 # 0 looks along +z, yaw grows toward +x; pitch grows upward. The
-# horizontal field of view is 90 degrees (tan 1).
+# horizontal field of view is 90 degrees (tan 1). The sun stands at
+# elevation sel and azimuth saz (the same turns as yaw).
 def cam(+px: U32, +py: U32, +pz: U32, +yaw: U32, +pitch: U32, +ws: U32, +hs: U32, +vd: U32,
-  +tier: U32, +lc: Nat) -> Cam:
+  +tier: U32, +sel: U32, +saz: U32, +lc: Nat) -> Cam:
   +sy = Fx.sin(yaw)
   +cy = Fx.cos(yaw)
   +sp = Fx.sin(pitch)
   +cp = Fx.cos(pitch)
-  Cam{px, py, pz, Fx.mul(cp, sy), sp, Fx.mul(cp, cy), per(cy, ws), 0, per(Fx.neg(sy), ws),
-    per(Fx.mul(sp, sy), ws), per(Fx.neg(cp), ws), per(Fx.mul(sp, cy), ws), ws, hs,
-    U32.shln(vd, 12n), tier, lc}
+  +ce = Fx.cos(sel)
+  +lx = Fx.mul(ce, Fx.sin(saz))
+  +ly = Fx.sin(sel)
+  +lz = Fx.mul(ce, Fx.cos(saz))
+  cam.fin(px, py, pz, sy, cy, sp, cp, ws, hs, vd, tier, lx, ly, lz, lc,
+    sun.at(dot(lx, ly, lz, cy, 0, Fx.neg(sy)), dot(lx, ly, lz, Fx.neg(Fx.mul(sp, sy)), cp,
+      Fx.neg(Fx.mul(sp, cy))), dot(lx, ly, lz, Fx.mul(cp, sy), sp, Fx.mul(cp, cy)), ws, hs))
 
 # Colours
 # -------
@@ -96,12 +131,27 @@ def Sky.zenith() -> U32:
 def Sky.horizon() -> U32:
   rgb(178, 210, 246)
 
-# The sky along d: the horizon's colour at and below the horizon, the
-# zenith's at the top (the elevation as dy over the L1 length of d).
-def sky(+dx: U32, +dy: U32, +dz: U32) -> U32:
-  +l1 = (Fx.abs(dx) + Fx.abs(dy) + Fx.abs(dz) : U32)
-  +e = Fx.sel(Fx.isneg(dy), 0, U32.div(U32.shln(dy, 8n), (l1 + 1 : U32)))
-  mix(Sky.horizon(), Sky.zenith(), clamp256((e * 2 : U32)))
+def Sky.sun() -> U32:
+  rgb(255, 250, 228)
+
+def Sky.glow() -> U32:
+  rgb(255, 236, 190)
+
+def near(+a: U32, +b: U32) -> U32:
+  +d = Fx.abs((a - b : U32))
+  Fx.sel((d > 16383 : U32), 16383, d)
+
+# The sky at sample (sx, sy) whose ray climbs e / 256 (dy over the L1
+# length of d): the horizon's colour at and below the horizon, the
+# zenith's at the top, and the sun's disc and glow (radius r at (cx, cy)).
+def sky(+e: U32, +sx: U32, +sy: U32, +cx: U32, +cy: U32, +r: U32) -> U32:
+  +ex = near(sx, cx)
+  +ey = near(sy, cy)
+  +d2 = (ex * ex + ey * ey : U32)
+  +r2 = (r * r : U32)
+  +base = mix(Sky.horizon(), Sky.zenith(), clamp256((e * 2 : U32)))
+  Fx.sel((d2 < r2 : U32), Sky.sun(), mix(base, Sky.glow(),
+    U32.shrn(U32.div((r2 * 1024 : U32), (d2 + r2 * 4 + 1 : U32)), 1n)))
 
 # The texture atlas
 # -----------------
@@ -371,30 +421,40 @@ def ao.light(+m: U32, +u: U32, +v: U32) -> U32:
 
 # The surface: its texel, the face's light and occlusion, the fog, the water.
 type Surf is Data:
-  Surf{b: U32, f: U32, t: U32, x: U32, y: U32, z: U32, wt: U32, u: U32, v: U32, fg: U32, sky: U32}
+  Surf{b: U32, f: U32, t: U32, x: U32, y: U32, z: U32, wt: U32, u: U32, v: U32, fg: U32, sky: U32,
+    fr: U32, wc: U32, sh: U32}
 
 def water.col() -> U32:
   rgb(40, 84, 180)
 
-# The water between wt and t over colour c: a tint by depth, a sky sheen.
-def wet.if(dry: Bool, +c: U32, +wt: U32, +t: U32, +sky: U32) -> U32:
+# The water's colour where the ray entered it (at t = wt): its atlas
+# texel's noise, computed in place (no read).
+def water.at(+ox: U32, +oz: U32, +dx: U32, +dz: U32, +wt: U32) -> U32:
+  +u = U32.and(U32.shrn(at(ox, dx, wt), 12n), 15)
+  +v = U32.and(U32.shrn(at(oz, dz, wt), 12n), 15)
+  T.vary(water.col(), U32.and(T.hash((5120 + v * 16 + u : U32)), 255), 40)
+
+# The water between wt and t over colour c: a tint by depth, and the sky
+# mirrored by fr / 256 (more at grazing angles).
+def wet.if(dry: Bool, +c: U32, +wt: U32, +t: U32, +sky: U32, +fr: U32, +wc: U32) -> U32:
   match dry:
     case True{}:
       c
     case False{}:
       +k = (U32.shrn((t - wt : U32), 6n) + 96 : U32)
-      mix(mix(c, water.col(), Fx.sel((k > 230 : U32), 230, k)), sky, 40)
+      mix(mix(c, wc, Fx.sel((k > 230 : U32), 230, k)), sky, fr)
 
-def wet(+c: U32, +wt: U32, +t: U32, +sky: U32) -> U32:
-  wet.if(U32.is_eq(wt, none()), c, wt, t, sky)
+def wet(+c: U32, +wt: U32, +t: U32, +sky: U32, +fr: U32, +wc: U32) -> U32:
+  wet.if(U32.is_eq(wt, none()), c, wt, t, sky, fr, wc)
 
 def surf.fin(+s: Surf, +light: U32, r: Array<U32> & U32) -> Array<U32> & U32:
-  Surf{b, f, t, x, y, z, wt, u, v, fg, sky} = s
+  Surf{b, f, t, x, y, z, wt, u, v, fg, sky, fr, wc, sh} = s
   (w, +texel) = r
-  (w, mix(wet(scale(texel, U32.shrn((light * face.light(f) : U32), 8n)), wt, t, sky), sky, fg))
+  +k = U32.shrn((U32.shrn((light * face.light(f) : U32), 8n) * sh : U32), 8n)
+  (w, mix(wet(scale(texel, k), wt, t, sky, fr, wc), sky, fg))
 
 def surf.ao(+s: Surf, +tex: U32, r: Array<U32> & U32) -> Array<U32> & U32:
-  Surf{b, f, t, x, y, z, wt, u, v, fg, sky} = s
+  Surf{b, f, t, x, y, z, wt, u, v, fg, sky, fr, wc, sh} = s
   (w, +m) = r
   surf.fin(s, ao.light(m, u, Fx.sel(U32.is_eq(U32.shrn(f, 1n), 1), v, (4095 - v : U32))), w[tex])
 
@@ -408,7 +468,7 @@ def surf.if(ao: Bool, +tier: U32, +lc: Nat, +s: Surf, +tex: U32, +flat: U32, +ax
 
 # The texel of the surface, lit (tier 0: flat, 1: + atlas texels, 2: + occlusion).
 def surf(+tier: U32, +lc: Nat, +s: Surf, w: Array<U32>) -> Array<U32> & U32:
-  Surf{b, f, t, x, y, z, wt, u, v, fg, sky} = s
+  Surf{b, f, t, x, y, z, wt, u, v, fg, sky, fr, wc, sh} = s
   +tex = (W.aux(lc) + U32.shln((b * 4 + face.cls(f) : U32), 8n)
     + U32.shln(U32.shrn(v, 8n), 4n) + U32.shrn(u, 8n) : U32)
   +ax = U32.shrn(f, 1n)
@@ -419,45 +479,100 @@ def surf(+tier: U32, +lc: Nat, +s: Surf, w: Array<U32>) -> Array<U32> & U32:
     ax, nx, ny, nz, w)
 
 
+# Sunlight on a face: 256, or 150 in shadow (the face turned from the
+# sun, or a block between it and the sun within 24 blocks: tier 3).
+def sh.lit() -> U32:
+  256
+
+def sh.dark() -> U32:
+  150
+
+def sh.fin(r: Array<U32> & Hit) -> Array<U32> & U32:
+  (w, +h) = r
+  Hit{b, f, t, x, y, z, wt} = h
+  (w, Fx.sel(U32.is_eq(b, 0), sh.lit(), sh.dark()))
+
+def sh.if(on: Bool, facing: Bool, +c: Cam, +px: U32, +py: U32, +pz: U32, w: Array<U32>) ->
+  Array<U32> & U32:
+  match on facing:
+    case False{} _:
+      (w, sh.lit())
+    case True{} False{}:
+      (w, sh.dark())
+    case True{} True{}:
+      Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, lc} = c
+      sh.fin(cast(w, px, py, pz, lx, ly, lz, 98304, 24, lc))
+
+# Whether face f looks toward the sun (the normal's component of l > 0).
+def facing(+f: U32, +lx: U32, +ly: U32, +lz: U32) -> Bool:
+  +ax = U32.shrn(f, 1n)
+  +l = Fx.sel(U32.is_eq(ax, 0), lx, Fx.sel(U32.is_eq(ax, 1), ly, lz))
+  U32.is_eq(Fx.sel(U32.is_eq(U32.and(f, 1), 0), Fx.b2u(Fx.slt(0, l)), Fx.b2u(Fx.isneg(l))), 1)
+
+# p nudged 1/64 of a block off face f, along its normal.
+def nudge(+f: U32, +ax: U32, +p: U32) -> U32:
+  Fx.sel(U32.is_eq(U32.shrn(f, 1n), ax), Fx.sel(U32.is_eq(U32.and(f, 1), 0), (p + 1024 : U32),
+    (p - 1024 : U32)), p)
+
+def shade.surf(+tier: U32, +lc: Nat, +s: Surf, r: Array<U32> & U32) -> Array<U32> & U32:
+  Surf{b, f, t, x, y, z, wt, u, v, fg, sky, fr, wc, sh} = s
+  (w, +sh2) = r
+  surf(tier, lc, Surf{b, f, t, x, y, z, wt, u, v, fg, sky, fr, wc, sh2}, w)
+
 # u, v: the hit point's fractions (12 bits) along the face's tangent axes
 # (x faces: z, y; y faces: x, z; z faces: x, y), v flipped on the sides so
 # texel row 0 is the top.
-def shade.hit(+c: Cam, +dx: U32, +dy: U32, +dz: U32, +sky: U32, +h: Hit, w: Array<U32>) ->
+def shade.hit(+c: Cam, +dx: U32, +dy: U32, +dz: U32, +sky: U32, +fr: U32, +wc: U32, +h: Hit,
+  w: Array<U32>) ->
   Array<U32> & U32:
-  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lc} = c
+  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, lc} = c
   Hit{b, f, t, x, y, z, wt} = h
-  +px = U32.shrn(U32.and(at(ox, dx, t), 65535), 4n)
-  +py = U32.shrn(U32.and(at(oy, dy, t), 65535), 4n)
-  +pz = U32.shrn(U32.and(at(oz, dz, t), 65535), 4n)
+  +hx = at(ox, dx, t)
+  +hy = at(oy, dy, t)
+  +hz = at(oz, dz, t)
+  +px = U32.shrn(U32.and(hx, 65535), 4n)
+  +py = U32.shrn(U32.and(hy, 65535), 4n)
+  +pz = U32.shrn(U32.and(hz, 65535), 4n)
   +ax2 = U32.shrn(f, 1n)
   +u = Fx.sel(U32.is_eq(ax2, 0), pz, px)
   +v = Fx.sel(U32.is_eq(ax2, 1), pz, (4095 - py : U32))
-  surf(tier, lc, Surf{b, f, t, x, y, z, wt, u, v, fog(t, tmax), sky}, w)
+  shade.surf(tier, lc, Surf{b, f, t, x, y, z, wt, u, v, fog(t, tmax), sky, fr, wc, 256},
+    sh.if((tier >= 3 : U32), facing(f, lx, ly, lz), c, nudge(f, 0, hx), nudge(f, 1, hy),
+      nudge(f, 2, hz), w))
 
-def shade.pick(miss: Bool, +c: Cam, +dx: U32, +dy: U32, +dz: U32, +sky: U32, +h: Hit,
+def shade.pick(miss: Bool, +c: Cam, +dx: U32, +dy: U32, +dz: U32, +sky: U32, +fr: U32, +wc: U32, +h: Hit,
   w: Array<U32>) -> Array<U32> & U32:
   match miss:
     case True{}:
-      Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lc} = c
       Hit{b, f, t, x, y, z, wt} = h
-      (w, wet(sky, wt, Fx.sel(U32.is_eq(wt, none()), t, (wt + 4096 : U32)), sky))
+      (w, wet(sky, wt, Fx.sel(U32.is_eq(wt, none()), t, (wt + 4096 : U32)), sky, fr, wc))
     case False{}:
-      shade.hit(c, dx, dy, dz, sky, h, w)
+      shade.hit(c, dx, dy, dz, sky, fr, wc, h, w)
 
-def shade(+c: Cam, +dx: U32, +dy: U32, +dz: U32, r: Array<U32> & Hit) -> Array<U32> & U32:
-  (w, +h) = r
+# ea: how steeply the ray climbs or falls (|dy| over the L1 length of d, out of 256).
+def shade.ea(+c: Cam, +sx: U32, +sy: U32, +dx: U32, +dy: U32, +dz: U32, +ea: U32, +h: Hit,
+  w: Array<U32>) -> Array<U32> & U32:
+  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, lc} = c
   Hit{b, f, t, x, y, z, wt} = h
-  shade.pick(U32.is_eq(b, 0), c, dx, dy, dz, sky(dx, dy, dz), h, w)
+  +g = (256 - ea : U32)
+  shade.pick(U32.is_eq(b, 0), c, dx, dy, dz, sky(Fx.sel(Fx.isneg(dy), 0, ea), sx, sy, snx, sny, snr),
+    (20 + U32.shrn((g * g : U32), 10n) : U32), water.at(ox, oz, dx, dz, wt), h, w)
+
+def shade(+c: Cam, +sx: U32, +sy: U32, +dx: U32, +dy: U32, +dz: U32, r: Array<U32> & Hit) ->
+  Array<U32> & U32:
+  (w, +h) = r
+  +l1 = (Fx.abs(dx) + Fx.abs(dy) + Fx.abs(dz) : U32)
+  shade.ea(c, sx, sy, dx, dy, dz, U32.div(U32.shln(Fx.abs(dy), 8n), (l1 + 1 : U32)), h, w)
 
 # The colour of sample (sx, sy).
 def pixel(w: Array<U32>, +sx: U32, +sy: U32, +c: Cam) -> Array<U32> & U32:
-  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lc} = c
+  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, lc} = c
   +mx = (sx * 2 + 1 - ws : U32)
   +my = (sy * 2 + 1 - hs : U32)
   +dx = (fx + Fx.asr((ax * mx + bx * my : U32), 1n) : U32)
   +dy = (fy + Fx.asr((ay * mx + by * my : U32), 1n) : U32)
   +dz = (fz + Fx.asr((az * mx + bz * my : U32), 1n) : U32)
-  shade(c, dx, dy, dz, cast(w, ox, oy, oz, dx, dy, dz, tmax, U32.shrn(tmax, 12n), lc))
+  shade(c, sx, sy, dx, dy, dz, cast(w, ox, oy, oz, dx, dy, dz, tmax, U32.shrn(tmax, 12n), lc))
 
 # The framebuffer
 # ---------------
@@ -469,11 +584,11 @@ type P2 is Type:
 def put(~wr: Array<U32> -> U32 -> U32 -> Array<U32>, n: Nat, +x: U32, +y: U32, +c: Cam, fb: Array<U32>, r: Array<U32> & U32) -> P2:
   match n:
     case 0n:
-      Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lc} = c
+      Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, lc} = c
       (w, +col) = r
       P2{w, wr(fb, (y * ws + x : U32), col)}
     case 1n+p:
-      Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lc} = c
+      Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, lc} = c
       (w, +col) = r
       +e = U32.is_eq((x + 1 : U32), ws)
       +x2 = Fx.sel(e, 0, (x + 1 : U32))
@@ -485,7 +600,7 @@ def leaf.if(~wr: Array<U32> -> U32 -> U32 -> Array<U32>, e: Bool, +i: U32, +i1: 
     case True{}:
       P2{w, fb}
     case False{}:
-      Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lc} = c
+      Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, lc} = c
       +x = U32.mod(i, ws)
       +y = U32.div(i, ws)
       put(~wr, U32.to_nat((i1 - i - 1 : U32)), x, y, c, fb, pixel(w, x, y, c))
@@ -509,7 +624,7 @@ def node(~wr: Array<U32> -> U32 -> U32 -> Array<U32>, +d: Nat, +i: U32, +i1: U32
 
 # The frame into fb (ws x hs, row-major): P2{w, fb}.
 def fill(~wr: Array<U32> -> U32 -> U32 -> Array<U32>, +c: Cam, +d: Nat, w: Array<U32>, fb: Array<U32>) -> P2:
-  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lc} = c
+  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, lc} = c
   node(~wr, d, 0, (ws * hs : U32), c, w, fb)
 
 # The window image
@@ -640,7 +755,7 @@ def O.img(+k: Nat, +ws: U32, +hs: U32, old: Image, p: P2) -> Out:
 # fill, then the Image of fb over 2^(k + 4) samples: both in one call (one
 # GPU turn under !), the last image dropped inside it.
 def draw(~wr: Array<U32> -> U32 -> U32 -> Array<U32>, +c: Cam, +d: Nat, +k: Nat, w: Array<U32>, fb: Array<U32>, old: Image) -> Out:
-  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lc} = c
+  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, lc} = c
   O.img(k, ws, hs, old, fill(~wr, c, d, w, fb))
 
 # Output

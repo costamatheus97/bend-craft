@@ -31,3 +31,50 @@
 2026-09-27 23:25:10 test-render_full rc=0 ms=1711 load=0.96 drv=0 | /tmp/tmp.Zc8FGMcSJi/render_full.g --threads 16 --gpu 3GB
 2026-09-27 23:25:29 test-world_full-build rc=0 ms=1691 load=1.01 drv=0 | /tmp/tmp.8FjSWAuPvp/world_full.g --gpu-build
 2026-09-27 23:25:31 test-world_full rc=0 ms=750 load=1.17 drv=0 | /tmp/tmp.8FjSWAuPvp/world_full.g --threads 16 --gpu 3GB
+2026-09-27 23:29:20 test-render-build rc=0 ms=11938 load=0.92 drv=0 | /tmp/tmp.4NYwGTETvk/render.g --gpu-build
+2026-09-27 23:29:32 test-render rc=0 ms=363 load=1.38 drv=0 | /tmp/tmp.4NYwGTETvk/render.g --threads 16 --gpu 3GB
+2026-09-27 23:29:35 test-render_full-build rc=0 ms=11969 load=1.38 drv=0 | /tmp/tmp.4NYwGTETvk/render_full.g --gpu-build
+2026-09-27 23:29:48 test-render_full rc=0 ms=2386 load=1.74 drv=0 | /tmp/tmp.4NYwGTETvk/render_full.g --threads 16 --gpu 3GB
+2026-09-27 23:30:07 sweep rc=0 ms=565 load=1.25 drv=0 | BR_N=30 BR_W=1280 BR_H=720 BR_K=7 BR_TIER=0 BR_X=200 BR_Z=60 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:30:08 sweep rc=0 ms=680 load=1.25 drv=0 | BR_N=30 BR_W=1280 BR_H=720 BR_K=7 BR_TIER=1 BR_X=200 BR_Z=60 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:30:09 sweep rc=0 ms=668 load=1.25 drv=0 | BR_N=30 BR_W=1280 BR_H=720 BR_K=7 BR_TIER=2 BR_X=200 BR_Z=60 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:30:11 sweep rc=0 ms=698 load=1.25 drv=0 | BR_N=30 BR_W=1280 BR_H=720 BR_K=7 BR_TIER=3 BR_X=200 BR_Z=60 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:30:23 sweep rc=0 ms=904 load=1.04 drv=0 | BR_N=69 BR_SPIN=1024 BR_PITCH=0 BR_W=1280 BR_H=720 BR_K=7 BR_TIER=2 BR_X=128 BR_Z=128 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:30:24 sweep rc=0 ms=1056 load=1.04 drv=0 | BR_N=69 BR_SPIN=1024 BR_PITCH=0 BR_W=1280 BR_H=720 BR_K=7 BR_TIER=3 BR_X=128 BR_Z=128 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:30:26 sweep rc=0 ms=1156 load=0.95 drv=0 | BR_N=69 BR_SPIN=1024 BR_PITCH=0 BR_W=1280 BR_H=720 BR_K=7 BR_TIER=2 BR_X=200 BR_Z=60 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:30:27 sweep rc=0 ms=1084 load=0.95 drv=0 | BR_N=69 BR_SPIN=1024 BR_PITCH=0 BR_W=1280 BR_H=720 BR_K=7 BR_TIER=3 BR_X=200 BR_Z=60 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:30:29 sweep rc=0 ms=1103 load=0.95 drv=0 | BR_N=69 BR_SPIN=1024 BR_PITCH=0 BR_W=1280 BR_H=720 BR_K=7 BR_TIER=2 BR_X=40 BR_Z=200 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:30:31 sweep rc=0 ms=1063 load=0.95 drv=0 | BR_N=69 BR_SPIN=1024 BR_PITCH=0 BR_W=1280 BR_H=720 BR_K=7 BR_TIER=3 BR_X=40 BR_Z=200 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:30:40 sweep rc=0 ms=1120 load=0.88 drv=0 | BR_N=69 BR_SPIN=1024 BR_PITCH=0 BR_W=1280 BR_H=720 BR_K=7 BR_TIER=3 BR_X=200 BR_Z=60 BR_D=12 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:30:41 sweep rc=0 ms=1015 load=1.13 drv=0 | BR_N=69 BR_SPIN=1024 BR_PITCH=0 BR_W=1280 BR_H=720 BR_K=7 BR_TIER=3 BR_X=200 BR_Z=60 BR_D=14 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:30:43 sweep rc=0 ms=1071 load=1.13 drv=0 | BR_N=69 BR_SPIN=1024 BR_PITCH=0 BR_W=1280 BR_H=720 BR_K=7 BR_TIER=3 BR_X=200 BR_Z=60 BR_D=15 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:30:45 sweep rc=0 ms=1032 load=1.13 drv=0 | BR_N=69 BR_SPIN=1024 BR_PITCH=0 BR_W=1280 BR_H=720 BR_K=7 BR_TIER=3 BR_X=200 BR_Z=60 BR_D=16 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:30:46 sweep rc=0 ms=1045 load=1.04 drv=0 | BR_N=69 BR_SPIN=1024 BR_PITCH=0 BR_W=1280 BR_H=720 BR_K=7 BR_TIER=3 BR_X=200 BR_Z=60 BR_D=17 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:31:07 sweep rc=0 ms=871 load=0.74 drv=0 | BR_N=69 BR_SPIN=1024 BR_PITCH=0 BR_W=1280 BR_H=720 BR_K=7 BR_TIER=2 BR_X=200 BR_Z=60 BR_D=14 BR_VD=48 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:31:09 sweep rc=0 ms=988 load=0.74 drv=0 | BR_N=69 BR_SPIN=1024 BR_PITCH=0 BR_W=1280 BR_H=720 BR_K=7 BR_TIER=3 BR_X=200 BR_Z=60 BR_D=14 BR_VD=48 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:31:10 sweep rc=0 ms=979 load=0.74 drv=0 | BR_N=69 BR_SPIN=1024 BR_PITCH=0 BR_W=1280 BR_H=720 BR_K=7 BR_TIER=2 BR_X=200 BR_Z=60 BR_D=14 BR_VD=32 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:31:12 sweep rc=0 ms=945 load=1.01 drv=0 | BR_N=69 BR_SPIN=1024 BR_PITCH=0 BR_W=1280 BR_H=720 BR_K=7 BR_TIER=3 BR_X=200 BR_Z=60 BR_D=14 BR_VD=32 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:32:17 sweep rc=0 ms=491 load=0.41 drv=0 | BR_N=41 BR_SPIN=1638 BR_PITCH=0 BR_X=200 BR_Z=60 BR_W=320 BR_H=180 BR_K=5 BR_TIER=0 BR_VD=64 BR_D=14 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:32:18 sweep rc=0 ms=472 load=0.41 drv=0 | BR_N=41 BR_SPIN=1638 BR_PITCH=0 BR_X=200 BR_Z=60 BR_W=320 BR_H=180 BR_K=5 BR_TIER=0 BR_VD=48 BR_D=14 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:32:19 sweep rc=0 ms=522 load=0.41 drv=0 | BR_N=41 BR_SPIN=1638 BR_PITCH=0 BR_X=200 BR_Z=60 BR_W=320 BR_H=180 BR_K=5 BR_TIER=2 BR_VD=64 BR_D=14 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:32:20 sweep rc=0 ms=497 load=0.41 drv=0 | BR_N=41 BR_SPIN=1638 BR_PITCH=0 BR_X=200 BR_Z=60 BR_W=320 BR_H=180 BR_K=5 BR_TIER=2 BR_VD=48 BR_D=14 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:32:21 sweep rc=0 ms=514 load=0.62 drv=0 | BR_N=41 BR_SPIN=1638 BR_PITCH=0 BR_X=200 BR_Z=60 BR_W=320 BR_H=180 BR_K=5 BR_TIER=3 BR_VD=64 BR_D=14 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:32:22 sweep rc=0 ms=513 load=0.62 drv=0 | BR_N=41 BR_SPIN=1638 BR_PITCH=0 BR_X=200 BR_Z=60 BR_W=320 BR_H=180 BR_K=5 BR_TIER=3 BR_VD=48 BR_D=14 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:32:23 sweep rc=0 ms=592 load=0.62 drv=0 | BR_N=41 BR_SPIN=1638 BR_PITCH=0 BR_X=200 BR_Z=60 BR_W=640 BR_H=360 BR_K=6 BR_TIER=0 BR_VD=64 BR_D=14 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:32:24 sweep rc=0 ms=556 load=0.62 drv=0 | BR_N=41 BR_SPIN=1638 BR_PITCH=0 BR_X=200 BR_Z=60 BR_W=640 BR_H=360 BR_K=6 BR_TIER=0 BR_VD=48 BR_D=14 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:32:25 sweep rc=0 ms=562 load=0.62 drv=0 | BR_N=41 BR_SPIN=1638 BR_PITCH=0 BR_X=200 BR_Z=60 BR_W=640 BR_H=360 BR_K=6 BR_TIER=2 BR_VD=64 BR_D=14 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:32:26 sweep rc=0 ms=546 load=0.81 drv=0 | BR_N=41 BR_SPIN=1638 BR_PITCH=0 BR_X=200 BR_Z=60 BR_W=640 BR_H=360 BR_K=6 BR_TIER=2 BR_VD=48 BR_D=14 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:32:27 sweep rc=0 ms=575 load=0.81 drv=0 | BR_N=41 BR_SPIN=1638 BR_PITCH=0 BR_X=200 BR_Z=60 BR_W=640 BR_H=360 BR_K=6 BR_TIER=3 BR_VD=64 BR_D=14 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:32:29 sweep rc=0 ms=547 load=0.81 drv=0 | BR_N=41 BR_SPIN=1638 BR_PITCH=0 BR_X=200 BR_Z=60 BR_W=640 BR_H=360 BR_K=6 BR_TIER=3 BR_VD=48 BR_D=14 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:32:30 sweep rc=0 ms=748 load=0.81 drv=0 | BR_N=41 BR_SPIN=1638 BR_PITCH=0 BR_X=200 BR_Z=60 BR_W=1280 BR_H=720 BR_K=7 BR_TIER=0 BR_VD=64 BR_D=14 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:32:31 sweep rc=0 ms=717 load=0.75 drv=0 | BR_N=41 BR_SPIN=1638 BR_PITCH=0 BR_X=200 BR_Z=60 BR_W=1280 BR_H=720 BR_K=7 BR_TIER=0 BR_VD=48 BR_D=14 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:32:32 sweep rc=0 ms=785 load=0.75 drv=0 | BR_N=41 BR_SPIN=1638 BR_PITCH=0 BR_X=200 BR_Z=60 BR_W=1280 BR_H=720 BR_K=7 BR_TIER=2 BR_VD=64 BR_D=14 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:32:33 sweep rc=0 ms=816 load=0.75 drv=0 | BR_N=41 BR_SPIN=1638 BR_PITCH=0 BR_X=200 BR_Z=60 BR_W=1280 BR_H=720 BR_K=7 BR_TIER=2 BR_VD=48 BR_D=14 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:32:35 sweep rc=0 ms=804 load=0.75 drv=0 | BR_N=41 BR_SPIN=1638 BR_PITCH=0 BR_X=200 BR_Z=60 BR_W=1280 BR_H=720 BR_K=7 BR_TIER=3 BR_VD=64 BR_D=14 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:32:36 sweep rc=0 ms=746 load=0.69 drv=0 | BR_N=41 BR_SPIN=1638 BR_PITCH=0 BR_X=200 BR_Z=60 BR_W=1280 BR_H=720 BR_K=7 BR_TIER=3 BR_VD=48 BR_D=14 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:32:37 sweep rc=0 ms=1063 load=0.69 drv=0 | BR_N=41 BR_SPIN=1638 BR_PITCH=0 BR_X=200 BR_Z=60 BR_W=1920 BR_H=1080 BR_K=7 BR_TIER=0 BR_VD=64 BR_D=14 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:32:39 sweep rc=0 ms=955 load=0.69 drv=0 | BR_N=41 BR_SPIN=1638 BR_PITCH=0 BR_X=200 BR_Z=60 BR_W=1920 BR_H=1080 BR_K=7 BR_TIER=0 BR_VD=48 BR_D=14 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:32:40 sweep rc=0 ms=1092 load=0.69 drv=0 | BR_N=41 BR_SPIN=1638 BR_PITCH=0 BR_X=200 BR_Z=60 BR_W=1920 BR_H=1080 BR_K=7 BR_TIER=2 BR_VD=64 BR_D=14 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:32:42 sweep rc=0 ms=967 load=0.95 drv=0 | BR_N=41 BR_SPIN=1638 BR_PITCH=0 BR_X=200 BR_Z=60 BR_W=1920 BR_H=1080 BR_K=7 BR_TIER=2 BR_VD=48 BR_D=14 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:32:43 sweep rc=0 ms=1080 load=0.95 drv=0 | BR_N=41 BR_SPIN=1638 BR_PITCH=0 BR_X=200 BR_Z=60 BR_W=1920 BR_H=1080 BR_K=7 BR_TIER=3 BR_VD=64 BR_D=14 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:32:45 sweep rc=0 ms=981 load=0.95 drv=0 | BR_N=41 BR_SPIN=1638 BR_PITCH=0 BR_X=200 BR_Z=60 BR_W=1920 BR_H=1080 BR_K=7 BR_TIER=3 BR_VD=48 BR_D=14 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
