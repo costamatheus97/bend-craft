@@ -404,7 +404,9 @@ def show.p(+p: P) -> String:
 # What a frame looks like: samples, shading tier, view distance (blocks),
 # the sun's elevation and azimuth, and how it is made (mode 0: straight
 # into the window Image, render.bend's direct; 1: into the framebuffer,
-# then converted, render.bend's draw: the framebuffer then holds the frame).
+# then converted, render.bend's draw: the framebuffer then holds the frame;
+# 2: into the framebuffer only, render.bend's fill, for a window that shows
+# the framebuffer itself (play.bend's Blit.frame): the image stays old).
 type View is Data:
   View{ws: U32, hs: U32, tier: U32, vd: U32, sel: U32, saz: U32, mode: U32}
 
@@ -422,6 +424,10 @@ def view.cam(+v: View, +p: P, +lc: Nat, +a: Aim) -> R.Cam:
   R.cam.ui(R.cam(x, (y + eye() : U32), z, yaw, pitch, ws, hs, vd, tier, sel, saz, lc), slot, ax, ay,
     az)
 
+def view.fb(+p: P, +lc: Nat, old: Image, r: R.P2) -> Shown:
+  R.P2{w, fb} = r
+  Shown{Game{w, p, lc}, fb, old}
+
 def view.direct(+p: P, +lc: Nat, fb: Array<U32>, r: Array<U32> & Image) -> Shown:
   (w, img) = r
   Shown{Game{w, p, lc}, fb, img}
@@ -431,6 +437,8 @@ def view.m(+mode: U32, +c: R.Cam, +d: Nat, +k: Nat, +p: P, +lc: Nat, w: Array<U3
   match mode:
     case 0:
       view.direct(p, lc, fb, R.direct!(c, Nat.add(k, 2n), w, old))
+    case 2:
+      view.fb(p, lc, old, R.fill!(~W.Put.set, c, d, w, fb))
     case _:
       view.fin(p, lc, R.draw!(~W.Put.set, c, d, k, w, fb, old))
 

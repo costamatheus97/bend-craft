@@ -8,9 +8,10 @@
 # (0 flat, 1 textures, 2 + occlusion, 3 + shadows); PLAY_VD [48] view distance (blocks);
 # PLAY_D [14] fork depth; PLAY_SEED [1]; PLAY_X, PLAY_Z [150, 100] the spawn column; PLAY_N
 # [0: until quit] frames; PLAY_DEMO [0] (1: a scripted walk instead of the keyboard and mouse,
-# one tick a frame: a reproducible run for the benchmark); PLAY_MODE [1] (0: render straight
-# into the window Image; 1: into a framebuffer, then convert it, in the same bang);
-# PLAY_PPM [none] the last frame's samples there (P6; mode 1 only: mode 0 keeps no framebuffer); PLAY_LOG [0] (1: one line a frame: sim, render (the one bang: the render
+# one tick a frame: a reproducible run for the benchmark); PLAY_MODE [2] (0: render straight
+# into the window Image; 1: into a framebuffer, then convert it, in the same bang; 2: into a
+# framebuffer only, shown by blit.c's Blit.frame, no Image at all);
+# PLAY_PPM [none] the last frame's samples there (P6; modes 1 and 2: mode 0 keeps no framebuffer); PLAY_LOG [0] (1: one line a frame: sim, render (the one bang: the render
 # and the Image conversion), show (Window.frame: the fill, the pace, the blit), in us).
 #
 # A frame: the window's events fold into the held input; the clock owes ticks at 60 a second
@@ -49,7 +50,7 @@ def num(name: String, +default: U32) -> IO(U32):
     IO.pure(U32, Env.num(r, default))
 
 type Cfg is Data:
-  Cfg{view: G.View, d: Nat, k: Nat, demo: U32, log: U32}
+  Cfg{view: G.View, d: Nat, k: Nat, u: U32, demo: U32, log: U32}
 
 # Everything a frame carries but the window and the image.
 type St is Type:
@@ -71,7 +72,7 @@ def sim.of(+demo: U32, +n: U32, +f: U32, +inp: In.Input, sim: Loop.Sim<G.Game>) 
 
 def tick.fin(+cfg: Cfg, +now: U32, +inp: In.Input, +f: U32, sim: Loop.Sim<G.Game>, fb: Array<U32>,
   r: U32 & Loop.Clock) -> St:
-  Cfg{view, d, k, demo, log} = cfg
+  Cfg{view, d, k, u, demo, log} = cfg
   (+n, clk) = r
   St{sim.of(demo, n, f, inp, sim), fb, clk, inp, now, f}
 
@@ -91,7 +92,7 @@ def draw.fin(+tick: U32, paused: Bool, +prev: U32, +seed: U32, clk: Loop.Clock, 
   Mid{Loop.Sim{tick, paused, prev, seed, g}, fb, img, clk, inp, last, f}
 
 def draw(+cfg: Cfg, st: St, old: Image) -> Mid:
-  Cfg{view, d, k, demo, log} = cfg
+  Cfg{view, d, k, u, demo, log} = cfg
   St{sim, fb, clk, +inp, +last, +f} = st
   Loop.Sim{+tick, paused, +prev, +seed, game} = sim
   draw.fin(tick, paused, prev, seed, clk, inp, last, f, G.view(view, d, k, game, fb, old))
@@ -133,7 +134,7 @@ def ppm(r: Result<&1, &1, U32 & String, String>, +ws: U32, +hs: U32, fb: Array<U
       ppm.fin(path, R.ppm(ws, hs, fb))
 
 def fin(+cfg: Cfg, window: Window, st: St) -> IO(Unit):
-  Cfg{view, d, k, demo, log} = cfg
+  Cfg{view, d, k, u, demo, log} = cfg
   G.View{ws, hs, tier, vd, sel, saz, mode} = view
   St{sim, fb, clk, inp, last, f} = st
   do IO<Unit>:
@@ -144,21 +145,51 @@ def fin(+cfg: Cfg, window: Window, st: St) -> IO(Unit):
 def quit(+inp: In.Input) -> Bool:
   In.Input.held(inp, In.Key.quit())
 
-def shown(+t3: U32, m: Mid, r: Window & Image & List<Event>, rest: Window -> St -> Image -> IO(Unit))
-  -> IO(Unit):
-  Mid{sim, fb, img0, clk, inp, last, f} = m
-  (window, img, events) = r
+# The frame shown: the window, the framebuffer, the image, the events.
+type Sh is Type:
+  Sh{win: Window, fb: Array<U32>, img: Image, evs: List<Event>}
+
+def Blit.frame(window: Window, fb: Array<U32>, ws: U32, hs: U32, u: U32) ->
+  IO(Window & Array<U32> & List<Event>):
+  import "./blit.c"
+  import "./blit.js"
+
+def sh.blit(img: Image, r: Window & Array<U32> & List<Event>) -> IO(Sh):
+  (win, fb, evs) = r
+  IO.pure(Sh, Sh{win, fb, img, evs})
+
+def sh.img(fb: Array<U32>, r: Window & Image & List<Event>) -> IO(Sh):
+  (win, img, evs) = r
+  IO.pure(Sh, Sh{win, fb, img, evs})
+
+# Mode 2: the framebuffer straight into the window (Blit.frame); else the image (Window.frame).
+def present(+mode: U32, +ws: U32, +hs: U32, +u: U32, window: Window, fb: Array<U32>, img: Image) ->
+  IO(Sh):
+  match mode:
+    case 2:
+      do IO<Sh>:
+        r : Window & Array<U32> & List<Event> <- Blit.frame(window, fb, ws, hs, u)
+        sh.blit(img, r)
+    case _:
+      do IO<Sh>:
+        r : Window & Image & List<Event> <- Window.frame(window, img)
+        sh.img(fb, r)
+
+def shown(sim: Loop.Sim<G.Game>, clk: Loop.Clock, +inp: In.Input, +last: U32, +f: U32, s: Sh,
+  rest: Window -> St -> Image -> IO(Unit)) -> IO(Unit):
+  Sh{window, fb, img, events} = s
   rest(window, St{sim, fb, clk, In.Input.feed.with(~G.Key.map, events, inp), last, (f + 1 : U32)}, img)
 
 def show(+cfg: Cfg, +t0: U32, +t1: U32, +t2: U32, window: Window, m: Mid,
   rest: Window -> St -> Image -> IO(Unit)) -> IO(Unit):
-  Cfg{view, d, k, demo, log} = cfg
+  Cfg{view, d, k, u, demo, log} = cfg
+  G.View{ws, hs, tier, vd, sel, saz, mode} = view
   Mid{sim, fb, img, clk, +inp, +last, +f} = m
   do IO<Unit>:
-    r : Window & Image & List<Event> <- Window.frame(window, img)
+    s : Sh <- present(mode, ws, hs, u, window, fb, img)
     +t3 : U32 <- Clock.us()
     Unit <- say(log, line(f, t0, t1, t2, t3))
-    shown(t3, Mid{sim, fb, Pix{0}, clk, inp, last, f}, r, rest)
+    shown(sim, clk, inp, last, f, s, rest)
 
 @unsafe
 def run(+cfg: Cfg, n: Nat, stop: Bool, window: Window, st: St, old: Image) -> IO(Unit):
@@ -202,11 +233,11 @@ def main() -> IO(Unit):
     +n : U32 <- num("PLAY_N", 0)
     +demo : U32 <- num("PLAY_DEMO", 0)
     +log : U32 <- num("PLAY_LOG", 0)
-    +mode : U32 <- num("PLAY_MODE", 1)
+    +mode : U32 <- num("PLAY_MODE", 2)
     +ws : U32 = U32.shrn((w + U32.shln(1, U32.to_nat(u)) - 1 : U32), U32.to_nat(u))
     +hs : U32 = U32.shrn((h + U32.shln(1, U32.to_nat(u)) - 1 : U32), U32.to_nat(u))
     +k : Nat = Nat.sub(U32.log2((Fx.sel((w > h : U32), w, h) * 2 - 1 : U32)), Nat.add(U32.to_nat(u), 4n))
     Unit <- IO.print("play " ++ U32.show(w) ++ "x" ++ U32.show(h) ++ " samples " ++ U32.show(ws) ++ "x"
       ++ U32.show(hs) ++ " tier " ++ U32.show(tier) ++ " vd " ++ U32.show(vd) ++ " k " ++ Nat.show(k))
-    start(Cfg{G.View{ws, hs, tier, vd, 7000, 34960, mode}, U32.to_nat(d), k, demo, log},
+    start(Cfg{G.View{ws, hs, tier, vd, 7000, 34960, mode}, U32.to_nat(d), k, u, demo, log},
       Fx.sel(U32.is_eq(n, 0), 2147483647, n), w, h, G.new(4n, seed, x, z))
