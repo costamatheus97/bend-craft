@@ -214,6 +214,7 @@ After 29-31 the two-failure count restarted on both lanes:
 | 32 | CPU: empty-space skipping off with the sun table on (`PLAY_SKIP=2`). The bench's camera had bit 0 costing 9-18% (c1 47 -> 54 ms), and the sun table now ends most open-sky shadow walks, which is where the skip paid | the skip's per-cell test | -1 ms | paced 640x360, `playc5`, 3 rounds interleaved: busy p95 16.60-16.78 (skip 3) vs **18.65-18.88** (skip 2), p99 17.50-18.02 vs 20.31-20.56, 1 missed in 2 rounds. On the walk the skip still pays; the bench camera does not stand for the walk | rejected (1 of 2, CPU) | - |
 | 33 | CPU: where the p99 frames are. One shipping-build round with the per-frame log (`PLAY_LOG=1`, a diagnosis run, not a rung run) | the tail | a targeted fix if the slow frames cluster on edits (`W.set`, the sun table's upkeep) | the sim never exceeds 0.05 ms, so edits cost nothing; 52 frames are over 16.4 ms and 29 of them fall in frames 200-300, where the walk turns and the whole stretch is heavier (median 15.5-16.1 ms, against 13-14 elsewhere). The tail is heavy views plus the pool's tail (31), not spikes. Program-side levers for long open views are 23 (kept), 28 and 30 (rejected) | no fix to try (2 of 2, CPU): the CPU lane is blocked on the shipping runtime; 31 and 12 need upstream | - |
 | 34 | GPU 4K up2: where the p99 goes. One per-frame-log round of `playp` (a diagnosis run), plus the HW lines of the 10 shipping rounds | busy p99 17.1-17.9 | a host-side lever | render (the bang) med 12.55, p95 14.88, **p99 15.57**; busy med 14.0, p99 17.2: about 1.5 ms of host work is on every frame, most of it the copy down (fill med 0.93, p99 2.0-2.2); put p99 0.08 and pump p99 0.05 (the server's ShmCompletion is never waited on). The one lever is overlapping the copy with the next frame's render (a device-to-device snapshot, then an async copy on a second stream, shown one frame later): about -0.9 ms busy, which would pass p99 in most rounds. The shim has only synchronous `cuMemcpyDtoH` (no streams, no async copy, no device-to-device copy), so it needs a platform change; not built, bound only. The kernel's own tail needs the hoist (12) | **needs a platform change** (1 after the restart, GPU). With it, every lever left on the GPU lane needs upstream or the platform: the copy (this) and the kernel's tail (12) | - |
+| 35 | **Upstream main ef66a7cc** (after 2.0.32: the hoist of 12 landed as #1155) for the CPU lane, and the pool's grain (31) again on it | the per-voxel location read; the pool's fixed grain | -0.6 ms (main), -1 ms more (grain) | paced 640x360, same source, 3 rounds interleaved: busy p95 16.75-16.98 -> 15.95-16.30, p99 18.23-18.73 -> 17.20-18.20 (`logs/main-ef66-ab.txt`); the p99 still misses. Plus grain K 8, 5 rounds interleaved: stock p95 16.6-18.2 / p99 17.7-20.5 (0 of 5 pass), K 8 15.2-15.7 / 16.0-19.3 (3 of 5), K 16 15.1-16.5 / 16.0-18.6 (1 of 5) (`logs/grain-ef66-640x360.txt`). K 8 on the other rungs, 3 rounds: 320x180 p99 5.6-5.8 -> 4.6-4.7, 1080p up4 11.1-11.3 -> 8.6-9.1 (`logs/grain-ef66-sweep.txt`). Frame 300 the same bytes on old main, new main and new main + K 8 | **kept** (main); grain still needs upstream | 4fdf0b3 |
 
 **Why 16 threads buy only ~4.7x (31).** Measured on the bench at c16 640x360 (d 8, skip 3,
 BR_BANG=0), with patches to our emitted C that count and time (in `scratch/`, not shipped):
@@ -251,9 +252,11 @@ BR_BANG=0), with patches to our emitted C that count and time (in `scratch/`, no
 - The 2.6x quoted before 29 (c1 44.5 ms, c16 ~17) set a bench c1 frame against a paced c16 frame
   in the window; on the same bench and camera it is 4.7-5.2x.
 
-**Where the CPU lane stands.** 640x360 native is not unlocked on the shipping build: p95 passes
-(16.61-16.92) and p99 is 1.0-1.5 ms over (17.70-18.26). Two changes would each take it, and both
-need upstream:
+**Where the CPU lane stands.** On upstream main ef66a7cc (35), which has the hoist, 640x360 native
+is still not unlocked: p95 passes (15.95-16.30) and p99 is 0.5-1.5 ms over (17.20-18.20). With the
+pool's grain on top it passes in 3 of 5 rounds (p99 16.0-19.3), so it is close but not reliable on
+this machine. Before 35, on the shipping build: p95 16.61-16.92, p99 17.70-18.26, and two changes
+would each take it, both needing upstream:
 
 - the pool's grain (31): 640x360 passes in 4 of 4 rounds with it (p99 15.90-16.33);
   the pool fix measured before (#1092, tree pool-229: rows only, an early turn end, a yield before

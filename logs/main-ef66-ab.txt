@@ -1,0 +1,16 @@
+# Upstream main 574b6d39 (2.0.29, pr/main-229) vs ef66a7cc (after 2.0.32, pr/main-ef66), the same bend-craft
+# source (5045df7 plus the port), CPU, paced 640x360, real window, 900 frames, 3 rounds interleaved (busy in ms).
+r1 old  busy med 14.253 p95 16.868 p99 18.726 | missed 1 of 896
+r1 new  busy med 13.624 p95 16.302 p99 18.196 | missed 0 of 896
+r2 old  busy med 14.213 p95 16.750 p99 18.465 | missed 0 of 896
+r2 new  busy med 13.586 p95 15.948 p99 17.196 | missed 0 of 896
+r3 old  busy med 14.155 p95 16.981 p99 18.233 | missed 0 of 896
+r3 new  busy med 13.724 p95 16.172 p99 17.661 | missed 0 of 896
+# new vs new + grain K 8, a second session, 3 rounds interleaved:
+r1 new     busy med 13.606 p95 16.473 p99 17.677 | missed 0 of 896
+r2 new     busy med 13.658 p95 16.244 p99 18.259 | missed 0 of 896
+r3 new     busy med 13.709 p95 16.416 p99 17.594 | missed 0 of 896
+r1 new+g8  busy med 12.490 p95 14.790 p99 15.585 | missed 0 of 896
+r2 new+g8  busy med 12.440 p95 15.055 p99 16.241 | missed 0 of 896
+r3 new+g8  busy med 12.565 p95 14.684 p99 15.594 | missed 0 of 896
+# Frame 300 (PLAY_SHOT, unpaced): old = new = new+g8 (sha1 52e7b3f1b1c7...).

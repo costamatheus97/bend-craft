@@ -1,0 +1,17 @@
+# 640x360 rerun: stock (g1) vs grain K 8 and 16, upstream main ef66a7cc, CPU, paced, real window, 900 frames, 5 rounds interleaved.
+640x360 r1 g1 :: busy_ms med 14.219 p95 16.978 p99 18.626 | missed 2 of 896 | present_ms med 16.668 p95 16.980 | 08:04:53
+640x360 r1 g8 :: busy_ms med 12.858 p95 15.442 p99 16.577 | missed 0 of 896 | present_ms med 16.667 p95 16.691 | 08:05:08
+640x360 r1 g16 :: busy_ms med 12.694 p95 15.392 p99 16.840 | missed 1 of 896 | present_ms med 16.667 p95 16.700 | 08:05:24
+640x360 r2 g1 :: busy_ms med 13.990 p95 16.914 p99 18.910 | missed 0 of 896 | present_ms med 16.668 p95 16.940 | 08:05:39
+640x360 r2 g8 :: busy_ms med 12.901 p95 15.238 p99 16.489 | missed 0 of 896 | present_ms med 16.667 p95 16.681 | 08:05:55
+640x360 r2 g16 :: busy_ms med 12.586 p95 15.120 p99 15.985 | missed 0 of 896 | present_ms med 16.667 p95 16.683 | 08:06:11
+640x360 r3 g1 :: busy_ms med 13.895 p95 16.603 p99 17.689 | missed 0 of 896 | present_ms med 16.667 p95 16.755 | 08:06:26
+640x360 r3 g8 :: busy_ms med 12.815 p95 15.228 p99 15.969 | missed 0 of 896 | present_ms med 16.667 p95 16.685 | 08:06:42
+640x360 r3 g16 :: busy_ms med 12.806 p95 16.436 p99 18.617 | missed 2 of 896 | present_ms med 16.667 p95 16.751 | 08:06:57
+640x360 r4 g1 :: busy_ms med 13.909 p95 16.807 p99 18.156 | missed 0 of 896 | present_ms med 16.668 p95 16.809 | 08:07:13
+640x360 r4 g8 :: busy_ms med 12.855 p95 15.284 p99 17.323 | missed 0 of 896 | present_ms med 16.667 p95 16.699 | 08:07:28
+640x360 r4 g16 :: busy_ms med 12.904 p95 15.794 p99 18.194 | missed 1 of 896 | present_ms med 16.667 p95 16.704 | 08:07:44
+640x360 r5 g1 :: busy_ms med 14.801 p95 18.180 p99 20.491 | missed 0 of 896 | present_ms med 16.669 p95 18.183 | 08:08:00
+640x360 r5 g8 :: busy_ms med 13.013 p95 15.724 p99 19.344 | missed 3 of 896 | present_ms med 16.667 p95 16.690 | 08:08:16
+640x360 r5 g16 :: busy_ms med 13.325 p95 16.540 p99 18.294 | missed 1 of 896 | present_ms med 16.667 p95 16.756 | 08:08:31
+DONE

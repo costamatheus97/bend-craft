@@ -208,3 +208,20 @@ The `main` lane moves from pr/main-229 (574b6d39) to pr/main-ef66 (ef66a7cc), wh
 Tests: 21 of 21 on check, js, c1, c16 and main; 5 of 5 on gpu. Paced 640x360 on the CPU, the same
 source on both runtimes, 3 rounds interleaved: busy p95 16.75-16.98 -> 15.95-16.30, p99
 18.23-18.73 -> 17.20-18.20. The p99 still misses the rung. Frame 300 is the same bytes on both.
+
+## 2026-09-28 07:55-08:10 the pool's grain on upstream main
+
+On the new main, the grain patch (`tools/grain_patch.py`) sweep, all paced in the real window
+(OPTIMIZATIONS.md 35). The first 640x360 block was noisy (the stock build's p95 17.1-18.9, against
+15.9-16.3 an hour before), so it was rerun on its own for 5 rounds: stock 0 of 5, K 8 3 of 5, K 16
+1 of 5. K 8 takes about 20% off every CPU rung (320x180, 1080p up4) with the same frames; 1080p up2
+(960x540 samples) stays out of reach at 29-33 ms. Logs: `logs/grain-ef66-sweep.txt`,
+`logs/grain-ef66-640x360.txt`, `logs/main-ef66-ab.txt`.
+
+## 2026-09-28 08:10 mouse look
+
+`blit.c`'s pump holds the pointer on a click and lets it go on Esc (98aa9ad). It was checked with a
+synthetic XTest driver (clicks, motion) and keys sent to the window: while held, the pointer is back
+at the centre after each frame and a 300-pixel move turns the view as much as the same move
+without the hold; Esc lets it go and the game goes on; a second Esc, or Esc without the hold,
+quits. Both lanes (upstream main on the CPU, the fork tree on the GPU).

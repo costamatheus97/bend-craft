@@ -1,0 +1,34 @@
+# Grain sweep on upstream main ef66a7cc (tools/grain_patch.py, GRAIN=K; g1 = stock), CPU, paced, real window,
+# PLAY_DEMO=1 PLAY_N=900 --threads 16, rounds interleaved. load= is the 1-min load before the run (it counts the
+# previous run of this sweep). The 640x360 block here was noisy (stock p95 17.1-18.9 vs 15.9-16.3 an hour before);
+# see grain-ef66-640x360.txt for its 5-round rerun.
+640x360 r1 g1 :: busy_ms med 14.197 p95 17.810 p99 19.545 | missed 1 of 896 | present_ms med 16.668 p95 17.812 | load=1.82
+640x360 r1 g2 :: busy_ms med 13.528 p95 16.828 p99 17.950 | missed 1 of 896 | present_ms med 16.667 p95 16.878 | load=3.99
+640x360 r1 g4 :: busy_ms med 13.374 p95 16.891 p99 19.413 | missed 3 of 896 | present_ms med 16.667 p95 16.893 | load=5.78
+640x360 r1 g8 :: busy_ms med 13.400 p95 17.414 p99 19.808 | missed 2 of 896 | present_ms med 16.667 p95 17.419 | load=5.67
+640x360 r1 g16 :: busy_ms med 13.778 p95 16.905 p99 18.239 | missed 0 of 896 | present_ms med 16.668 p95 16.907 | load=6.17
+640x360 r2 g1 :: busy_ms med 14.194 p95 17.106 p99 18.383 | missed 0 of 896 | present_ms med 16.668 p95 17.108 | load=5.37
+640x360 r2 g2 :: busy_ms med 14.370 p95 18.608 p99 22.420 | missed 4 of 896 | present_ms med 16.670 p95 18.610 | load=5.43
+640x360 r2 g4 :: busy_ms med 13.757 p95 17.600 p99 21.670 | missed 0 of 896 | present_ms med 16.668 p95 17.603 | load=6.73
+640x360 r2 g8 :: busy_ms med 14.236 p95 18.899 p99 21.815 | missed 2 of 896 | present_ms med 16.669 p95 18.903 | load=6.32
+640x360 r2 g16 :: busy_ms med 13.891 p95 17.385 p99 18.456 | missed 0 of 896 | present_ms med 16.668 p95 17.404 | load=7.26
+640x360 r3 g1 :: busy_ms med 15.244 p95 18.856 p99 21.159 | missed 1 of 896 | present_ms med 16.671 p95 18.860 | load=7.92
+640x360 r3 g2 :: busy_ms med 13.755 p95 16.366 p99 18.097 | missed 0 of 896 | present_ms med 16.667 p95 16.749 | load=8.79
+640x360 r3 g4 :: busy_ms med 12.945 p95 15.522 p99 18.239 | missed 1 of 896 | present_ms med 16.667 p95 16.701 | load=9.50
+640x360 r3 g8 :: busy_ms med 13.707 p95 17.272 p99 20.464 | missed 2 of 896 | present_ms med 16.668 p95 17.275 | load=9.60
+640x360 r3 g16 :: busy_ms med 13.128 p95 15.480 p99 16.152 | missed 0 of 896 | present_ms med 16.667 p95 16.681 | load=10.21
+1080p-up4 r1 g1 :: busy_ms med 8.909 p95 10.382 p99 11.254 | missed 0 of 896 | present_ms med 16.667 p95 16.679 | load=10.91
+1080p-up4 r1 g8 :: busy_ms med 7.014 p95 8.050 p99 8.604 | missed 0 of 896 | present_ms med 16.666 p95 16.682 | load=8.90
+1080p-up4 r2 g1 :: busy_ms med 8.869 p95 10.495 p99 11.240 | missed 0 of 896 | present_ms med 16.667 p95 16.678 | load=8.18
+1080p-up4 r2 g8 :: busy_ms med 6.838 p95 8.144 p99 9.001 | missed 0 of 896 | present_ms med 16.666 p95 16.679 | load=7.12
+1080p-up4 r3 g1 :: busy_ms med 8.967 p95 10.431 p99 11.073 | missed 0 of 896 | present_ms med 16.667 p95 16.680 | load=6.94
+1080p-up4 r3 g8 :: busy_ms med 6.991 p95 8.364 p99 9.108 | missed 0 of 896 | present_ms med 16.667 p95 16.679 | load=5.40
+320x180 r1 g1 :: busy_ms med 4.628 p95 5.391 p99 5.623 | missed 0 of 896 | present_ms med 16.667 p95 16.681 | load=5.29
+320x180 r1 g8 :: busy_ms med 3.634 p95 4.145 p99 4.551 | missed 0 of 896 | present_ms med 16.667 p95 16.684 | load=5.35
+320x180 r2 g1 :: busy_ms med 4.763 p95 5.533 p99 5.821 | missed 0 of 896 | present_ms med 16.666 p95 16.682 | load=5.25
+320x180 r2 g8 :: busy_ms med 3.775 p95 4.303 p99 4.636 | missed 0 of 896 | present_ms med 16.667 p95 16.681 | load=3.76
+320x180 r3 g1 :: busy_ms med 4.705 p95 5.372 p99 5.630 | missed 0 of 896 | present_ms med 16.667 p95 16.681 | load=4.20
+320x180 r3 g8 :: busy_ms med 3.796 p95 4.426 p99 4.715 | missed 0 of 896 | present_ms med 16.667 p95 16.682 | load=3.34
+1080p-up2 r1 g1 :: busy_ms med 32.972 p95 39.194 p99 42.701 | missed 851 of 896 | present_ms med 32.974 p95 39.196 | load=2.80
+1080p-up2 r1 g8 :: busy_ms med 29.405 p95 35.700 p99 39.482 | missed 818 of 896 | present_ms med 29.406 p95 35.702 | load=7.11
+DONE
