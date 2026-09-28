@@ -182,11 +182,17 @@ Before the ladder the render alone ran 320x180 at 5.8 ms and 640x360 at 17 ms (c
 
 ### CPU rungs (shipping build `playc`, 3 rounds, 900 frames, real window, paced)
 
+upN means each sample is N x N pixels. The two upscaled CPU rungs run `PLAY_U=2`, so they are up4; they were
+first logged as "up2", which is what the screenshot's name still says. Native 720p on the CPU, one
+round, 900 frames, paced: busy med 51.7, p95 60.1, p99 63.4 ms (about 19 fps), and 49.7 / 57.6 / 60.1
+with the pool change of 31. c1 renders 720p in 179-212 ms (230 ns a ray), so even the control's 8.2x
+would leave 22-26 ms. Native CPU 720p at 60 fps needs about 3x, and nothing left gives that.
+
 | Rung | Samples | busy p95 | busy p99 | missed / round | present p95 | Status |
 |-|-|-|-|-|-|-|
 | 320x180 native | 320x180 | 5.55-5.61 | 5.91-6.01 | 0 | 16.677-16.680 | **unlocked** |
-| 720p up2 | 320x180 | 5.62-5.71 | 5.98-6.00 | 0 | 16.678 | **unlocked** (upscaled) |
-| 1080p up2 | 480x270 | 10.58-10.69 | 11.18-11.34 | 0 | 16.677-16.678 | **unlocked** (upscaled), `media/cpu-1080p-up2-paced.png`: frame 900 identical to the GPU's and to the server's readback |
+| 720p up4 | 320x180 | 5.62-5.71 | 5.98-6.00 | 0 | 16.678 | **unlocked** (upscaled) |
+| 1080p up4 | 480x270 | 10.58-10.69 | 11.18-11.34 | 0 | 16.677-16.678 | **unlocked** (upscaled), `media/cpu-1080p-up2-paced.png`: frame 900 identical to the GPU's and to the server's readback |
 | 640x360 native | 640x360 | 17.07-18.18 | 18.14-19.57 | 0 | 17.1-18.2 | not unlocked |
 | 640x360 native | 640x360 | 16.61-16.92 (17.07-18.18 before 29) | 17.70-18.26 (18.14-19.57 before 29) | 0 | 16.76-16.92 | not unlocked: p99 ~1-1.5 ms over (passes with the pool change in 31, which needs upstream) |
 

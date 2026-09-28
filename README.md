@@ -205,8 +205,8 @@ CPU lane, 16 threads (Ryzen 7 5800XT), same settings:
 | Rung | Samples | busy p95 | busy p99 |
 |-|-|-|-|
 | 320x180 | 320x180 | 5.5-5.6 | 5.9-6.0 |
-| 720p up2 | 320x180 | 5.6-5.7 | 6.0 |
-| 1080p up2 | 480x270 | 10.6-10.7 | 11.2-11.3 |
+| 720p up4 | 320x180 | 5.6-5.7 | 6.0 |
+| 1080p up4 | 480x270 | 10.6-10.7 | 11.2-11.3 |
 
 Not reached: 640x360 (p95 16.6-16.9 passes, p99 17.7-18.3 does not). A prototype of an upstream
 change to the CPU pool (the frontier grown to 8 units a worker, not 1, so a worker that lands on a

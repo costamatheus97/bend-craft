@@ -715,3 +715,5 @@
 2026-09-28 04:12:18 cship-playc5 rc=0 ms=15373 load=5.02 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_HW=1 PLAY_W=640 PLAY_H=360 PLAY_U=0 PLAY_SKIP=2 build/playc5 --threads 16
 2026-09-28 04:12:44 tail-log rc=0 ms=15078 load=4.84 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_HW=1 PLAY_W=640 PLAY_H=360 PLAY_U=0 PLAY_LOG=1 build/playc5 --threads 16
 2026-09-28 04:13:52 tail4k rc=0 ms=17027 load=2.12 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_HW=1 PLAY_W=3840 PLAY_H=2160 PLAY_U=1 PLAY_LOG=1 build/playp --threads 16 --gpu 3GB
+2026-09-28 04:17:22 cship-playc5 rc=0 ms=46703 load=0.17 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_HW=1 PLAY_W=1280 PLAY_H=720 PLAY_U=0 build/playc5 --threads 16
+2026-09-28 04:18:09 cship-playcg8 rc=0 ms=44540 load=5.03 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_HW=1 PLAY_W=1280 PLAY_H=720 PLAY_U=0 build/playcg8 --threads 16
