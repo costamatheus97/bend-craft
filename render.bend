@@ -40,15 +40,16 @@ import ./world.bend as W
 # f + (a (2 sx + 1 - ws) + b (2 sy + 1 - hs)) / 2); ws, hs: the samples;
 # tmax: the view distance as t (20.12); tier: the shading tier; l: the
 # direction toward the sun (16.16, unit); snx, sny, snr: the sun's disc on
-# the screen, in samples (signed; snr 0 when the sun is behind); lc: the
-# world's size.
+# the screen, in samples (signed; snr 0 when the sun is behind); hot: the
+# hotbar's selected slot (none(): no hotbar and no crosshair); tg: the
+# block to outline (none(): none); lc: the world's size.
 type Cam3 is Data:
   Cam3{a: U32, b: U32, c: U32}
 
 type Cam is Data:
   Cam{ox: U32, oy: U32, oz: U32, fx: U32, fy: U32, fz: U32, ax: U32, ay: U32, az: U32, bx: U32,
     by: U32, bz: U32, ws: U32, hs: U32, tmax: U32, tier: U32, lx: U32, ly: U32, lz: U32, snx: U32,
-    sny: U32, snr: U32, lc: Nat}
+    sny: U32, snr: U32, hot: U32, tgx: U32, tgy: U32, tgz: U32, lc: Nat}
 
 # v * 2 / ws, signed (v is 16.16 in [-1, 1]).
 def per(+v: U32, +ws: U32) -> U32:
@@ -77,7 +78,8 @@ def cam.fin(+px: U32, +py: U32, +pz: U32, +sy: U32, +cy: U32, +sp: U32, +cp: U32
   Cam3{snx, sny, snr} = sn
   Cam{px, py, pz, Fx.mul(cp, sy), sp, Fx.mul(cp, cy), per(cy, ws), 0, per(Fx.neg(sy), ws),
     per(Fx.mul(sp, sy), ws), per(Fx.neg(cp), ws), per(Fx.mul(sp, cy), ws), ws, hs,
-    U32.shln(vd, 12n), tier, lx, ly, lz, snx, sny, snr, lc}
+    U32.shln(vd, 12n), tier, lx, ly, lz, snx, sny, snr, 4294967295, 4294967295, 4294967295,
+    4294967295, lc}
 
 # The camera at (px, py, pz), turned yaw and pitch (turns of 65536): yaw
 # 0 looks along +z, yaw grows toward +x; pitch grows upward. The
@@ -96,6 +98,18 @@ def cam(+px: U32, +py: U32, +pz: U32, +yaw: U32, +pitch: U32, +ws: U32, +hs: U32
   cam.fin(px, py, pz, sy, cy, sp, cp, ws, hs, vd, tier, lx, ly, lz, lc,
     sun.at(dot(lx, ly, lz, cy, 0, Fx.neg(sy)), dot(lx, ly, lz, Fx.neg(Fx.mul(sp, sy)), cp,
       Fx.neg(Fx.mul(sp, cy))), dot(lx, ly, lz, Fx.mul(cp, sy), sp, Fx.mul(cp, cy)), ws, hs))
+
+# c with the hotbar (slot h selected) and the crosshair drawn, and the
+# block (x, y, z) outlined.
+def cam.ui(+c: Cam, +h: U32, +x: U32, +y: U32, +z: U32) -> Cam:
+  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc} = c
+  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, h, x, y, z, lc}
+
+# The hotbar's blocks: grass, dirt, stone, cobble, planks, log, brick, glass, sand.
+def hot.blk(+i: U32) -> U32:
+  Fx.sel((i < 4 : U32), Fx.sel((i < 2 : U32), Fx.sel(U32.is_eq(i, 0), 3, 2), Fx.sel(U32.is_eq(i, 2), 1, 12)),
+    Fx.sel((i < 7 : U32), Fx.sel(U32.is_eq(i, 4), 8, Fx.sel(U32.is_eq(i, 5), 6, 11)),
+      Fx.sel(U32.is_eq(i, 7), 13, 4)))
 
 # Colours
 # -------
@@ -500,7 +514,7 @@ def sh.if(on: Bool, facing: Bool, +c: Cam, +px: U32, +py: U32, +pz: U32, w: Arra
     case True{} False{}:
       (w, sh.dark())
     case True{} True{}:
-      Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, lc} = c
+      Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc} = c
       sh.fin(cast(w, px, py, pz, lx, ly, lz, 98304, 24, lc))
 
 # Whether face f looks toward the sun (the normal's component of l > 0).
@@ -519,13 +533,18 @@ def shade.surf(+tier: U32, +lc: Nat, +s: Surf, r: Array<U32> & U32) -> Array<U32
   (w, +sh2) = r
   surf(tier, lc, Surf{b, f, t, x, y, z, wt, u, v, fg, sky, fr, wc, sh2}, w)
 
+# The outline of the aimed block: its edges darkened.
+def hl(on: Bool, r: Array<U32> & U32) -> Array<U32> & U32:
+  (w, +c) = r
+  (w, Fx.sel(on, scale(c, 70), c))
+
 # u, v: the hit point's fractions (12 bits) along the face's tangent axes
 # (x faces: z, y; y faces: x, z; z faces: x, y), v flipped on the sides so
 # texel row 0 is the top.
 def shade.hit(+c: Cam, +dx: U32, +dy: U32, +dz: U32, +sky: U32, +fr: U32, +wc: U32, +h: Hit,
   w: Array<U32>) ->
   Array<U32> & U32:
-  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, lc} = c
+  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc} = c
   Hit{b, f, t, x, y, z, wt} = h
   +hx = at(ox, dx, t)
   +hy = at(oy, dy, t)
@@ -536,9 +555,11 @@ def shade.hit(+c: Cam, +dx: U32, +dy: U32, +dz: U32, +sky: U32, +fr: U32, +wc: U
   +ax2 = U32.shrn(f, 1n)
   +u = Fx.sel(U32.is_eq(ax2, 0), pz, px)
   +v = Fx.sel(U32.is_eq(ax2, 1), pz, (4095 - py : U32))
-  shade.surf(tier, lc, Surf{b, f, t, x, y, z, wt, u, v, fog(t, tmax), sky, fr, wc, 256},
+  +edge = ((u < 96) || (u > 3999) || (v < 96) || (v > 3999) : U32)
+  +on = U32.is_eq(x, tgx) && U32.is_eq(y, tgy) && U32.is_eq(z, tgz) && edge
+  hl(on, shade.surf(tier, lc, Surf{b, f, t, x, y, z, wt, u, v, fog(t, tmax), sky, fr, wc, 256},
     sh.if((tier >= 3 : U32), facing(f, lx, ly, lz), c, nudge(f, 0, hx), nudge(f, 1, hy),
-      nudge(f, 2, hz), w))
+      nudge(f, 2, hz), w)))
 
 def shade.pick(miss: Bool, +c: Cam, +dx: U32, +dy: U32, +dz: U32, +sky: U32, +fr: U32, +wc: U32, +h: Hit,
   w: Array<U32>) -> Array<U32> & U32:
@@ -552,7 +573,7 @@ def shade.pick(miss: Bool, +c: Cam, +dx: U32, +dy: U32, +dz: U32, +sky: U32, +fr
 # ea: how steeply the ray climbs or falls (|dy| over the L1 length of d, out of 256).
 def shade.ea(+c: Cam, +sx: U32, +sy: U32, +dx: U32, +dy: U32, +dz: U32, +ea: U32, +h: Hit,
   w: Array<U32>) -> Array<U32> & U32:
-  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, lc} = c
+  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc} = c
   Hit{b, f, t, x, y, z, wt} = h
   +g = (256 - ea : U32)
   shade.pick(U32.is_eq(b, 0), c, dx, dy, dz, sky(Fx.sel(Fx.isneg(dy), 0, ea), sx, sy, snx, sny, snr),
@@ -565,14 +586,58 @@ def shade(+c: Cam, +sx: U32, +sy: U32, +dx: U32, +dy: U32, +dz: U32, r: Array<U3
   shade.ea(c, sx, sy, dx, dy, dz, U32.div(U32.shln(Fx.abs(dy), 8n), (l1 + 1 : U32)), h, w)
 
 # The colour of sample (sx, sy).
-def pixel(w: Array<U32>, +sx: U32, +sy: U32, +c: Cam) -> Array<U32> & U32:
-  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, lc} = c
+def view(w: Array<U32>, +sx: U32, +sy: U32, +c: Cam) -> Array<U32> & U32:
+  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc} = c
   +mx = (sx * 2 + 1 - ws : U32)
   +my = (sy * 2 + 1 - hs : U32)
   +dx = (fx + Fx.asr((ax * mx + bx * my : U32), 1n) : U32)
   +dy = (fy + Fx.asr((ay * mx + by * my : U32), 1n) : U32)
   +dz = (fz + Fx.asr((az * mx + bz * my : U32), 1n) : U32)
   shade(c, sx, sy, dx, dy, dz, cast(w, ox, oy, oz, dx, dy, dz, tmax, U32.shrn(tmax, 12n), lc))
+
+# The crosshair: the colour under it inverted.
+def cross(+on: U32, r: Array<U32> & U32) -> Array<U32> & U32:
+  (w, +c) = r
+  (w, Fx.sel(U32.is_eq(on, 1), (16777215 - c : U32), c))
+
+def bar.fin(+b: U32, +frame: U32, r: Array<U32> & U32) -> Array<U32> & U32:
+  (w, +c) = r
+  (w, Fx.sel(U32.is_eq(b, 1), frame, c))
+
+# A hotbar slot's sample at (lx, ly) of q x q: a frame (white when the
+# slot is selected) around the block's side texture.
+def bar.px(w: Array<U32>, +i: U32, +lx: U32, +ly: U32, +q: U32, +hot: U32, +lc: Nat) ->
+  Array<U32> & U32:
+  +b = Fx.b2u(((lx < 3) || (ly < 3) || (lx + 3 >= q) || (ly + 3 >= q) : U32))
+  +tu = U32.div((lx * 16 : U32), q)
+  +tv = U32.div((ly * 16 : U32), q)
+  bar.fin(b, Fx.sel(U32.is_eq(i, hot), rgb(250, 250, 250), rgb(40, 40, 40)),
+    w[(W.aux(lc) + U32.shln((hot.blk(i) * 4 + 1 : U32), 8n) + tv * 16 + tu : U32)])
+
+# The sample (sx, sy): the hotbar over the bottom (no ray behind it), the
+# view with the crosshair elsewhere.
+def pixel.if(bar: Bool, w: Array<U32>, +sx: U32, +sy: U32, +c: Cam, +x0: U32, +y0: U32, +q: U32) ->
+  Array<U32> & U32:
+  match bar:
+    case True{}:
+      Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc} = c
+      +i = U32.div((sx - x0 : U32), q)
+      bar.px(w, i, (sx - x0 - i * q : U32), (sy - y0 : U32), q, hot, lc)
+    case False{}:
+      Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc} = c
+      +ex = Fx.abs((sx - U32.shrn(ws, 1n) : U32))
+      +ey = Fx.abs((sy - U32.shrn(hs, 1n) : U32))
+      +arm = (U32.div(hs, 60) + 2 : U32)
+      +on = U32.is_ne(hot, none()) && (((ex <= arm) && (ey < 1)) || ((ey <= arm) && (ex < 1)) : U32)
+      cross(Fx.b2u(on), view(w, sx, sy, c))
+
+def pixel(w: Array<U32>, +sx: U32, +sy: U32, +c: Cam) -> Array<U32> & U32:
+  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc} = c
+  +q = (U32.div(hs, 14) + 1 : U32)
+  +x0 = U32.shrn((ws - q * 9 : U32), 1n)
+  +y0 = (hs - q - U32.shrn(q, 2n) : U32)
+  +bar = U32.is_ne(hot, none()) && ((sy >= y0) && (sy < y0 + q) && (sx >= x0) && (sx < x0 + q * 9) : U32)
+  pixel.if(bar, w, sx, sy, c, x0, y0, q)
 
 # The framebuffer
 # ---------------
@@ -584,11 +649,11 @@ type P2 is Type:
 def put(~wr: Array<U32> -> U32 -> U32 -> Array<U32>, n: Nat, +x: U32, +y: U32, +c: Cam, fb: Array<U32>, r: Array<U32> & U32) -> P2:
   match n:
     case 0n:
-      Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, lc} = c
+      Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc} = c
       (w, +col) = r
       P2{w, wr(fb, (y * ws + x : U32), col)}
     case 1n+p:
-      Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, lc} = c
+      Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc} = c
       (w, +col) = r
       +e = U32.is_eq((x + 1 : U32), ws)
       +x2 = Fx.sel(e, 0, (x + 1 : U32))
@@ -600,7 +665,7 @@ def leaf.if(~wr: Array<U32> -> U32 -> U32 -> Array<U32>, e: Bool, +i: U32, +i1: 
     case True{}:
       P2{w, fb}
     case False{}:
-      Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, lc} = c
+      Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc} = c
       +x = U32.mod(i, ws)
       +y = U32.div(i, ws)
       put(~wr, U32.to_nat((i1 - i - 1 : U32)), x, y, c, fb, pixel(w, x, y, c))
@@ -624,7 +689,7 @@ def node(~wr: Array<U32> -> U32 -> U32 -> Array<U32>, +d: Nat, +i: U32, +i1: U32
 
 # The frame into fb (ws x hs, row-major): P2{w, fb}.
 def fill(~wr: Array<U32> -> U32 -> U32 -> Array<U32>, +c: Cam, +d: Nat, w: Array<U32>, fb: Array<U32>) -> P2:
-  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, lc} = c
+  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc} = c
   node(~wr, d, 0, (ws * hs : U32), c, w, fb)
 
 # The window image
@@ -755,7 +820,7 @@ def O.img(+k: Nat, +ws: U32, +hs: U32, old: Image, p: P2) -> Out:
 # fill, then the Image of fb over 2^(k + 4) samples: both in one call (one
 # GPU turn under !), the last image dropped inside it.
 def draw(~wr: Array<U32> -> U32 -> U32 -> Array<U32>, +c: Cam, +d: Nat, +k: Nat, w: Array<U32>, fb: Array<U32>, old: Image) -> Out:
-  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, lc} = c
+  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc} = c
   O.img(k, ws, hs, old, fill(~wr, c, d, w, fb))
 
 # Output
