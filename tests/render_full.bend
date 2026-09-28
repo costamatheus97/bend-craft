@@ -1,0 +1,107 @@
+# tests/render_full.bend: tests/render.bend on the full 256 x 64 x 256 world (lc = 4), 320 x 180
+# samples, on the native lanes and the GPU.
+#lanes c1,c16,gpu,main
+# - tiers 0 (flat), 1 (textures) and 2 (+ occlusion) at fork depth 0 (one leaf), then tier 2 at
+#   depths 4 and 11 (one sample a leaf): the framebuffer hash must not depend on the depth, and
+#   the window Image (converted in the same bang) must hash the same on every lane;
+# - the bounds pass: the frame with a counting writer writes every sample exactly once and
+#   nothing past the frame (an index out of range would wrap onto some sample: a 2).
+import Base
+import ../world.bend as W
+import ../render.bend as R
+import ../rng.bend as Rng
+import ../fx.bend as Fx
+
+type Cfg is Data:
+  Cfg{lc: Nat, ws: U32, hs: U32, px: U32, py: U32, pz: U32, yaw: U32, pitch: U32, vd: U32, k: Nat}
+
+type Fr is Type:
+  Fr{w: Array<U32>, fb: Array<U32>, hf: U32, hi: U32}
+
+def ih(img: Image) -> U32:
+  match img:
+    case Pix{+c}:
+      Rng.mix((c + 1 : U32))
+    case Qua{a, b, c, d}:
+      Rng.mix(U32.xor(ih(a), Rng.mix((ih(b) + Rng.mix((ih(c) * 3 + Rng.mix(ih(d)) : U32)) : U32))))
+
+def fr.h(w: Array<U32>, +hi: U32, r: Array<U32> & U32) -> Fr:
+  (fb, +hf) = r
+  Fr{w, fb, hf, hi}
+
+def fr.out(o: R.Out) -> Fr:
+  R.Out{w, fb, img} = o
+  fr.h(w, ih(img), W.hash(fb))
+
+def cam(+g: Cfg, +tier: U32) -> R.Cam:
+  Cfg{lc, ws, hs, px, py, pz, yaw, pitch, vd, k} = g
+  R.cam(px, py, pz, yaw, pitch, ws, hs, vd, tier, lc)
+
+def tier.of(+j: U32) -> U32:
+  Fx.sel((j < 3 : U32), j, 2)
+
+def d.of(+j: U32) -> Nat:
+  U32.to_nat(Fx.sel((j < 3 : U32), 0, Fx.sel(U32.is_eq(j, 3), 4, 11)))
+
+def frame(+g: Cfg, +j: U32, w: Array<U32>, fb: Array<U32>) -> Fr:
+  Cfg{lc, ws, hs, px, py, pz, yaw, pitch, vd, k} = g
+  fr.out(R.draw!(~W.Put.set, cam(g, tier.of(j)), d.of(j), k, w, fb, Pix{0}))
+
+def line(+j: U32, +hf: U32, +hi: U32) -> String:
+  "render tier " ++ U32.show(tier.of(j)) ++ " d " ++ Nat.show(d.of(j)) ++ " fb " ++ U32.show(hf)
+    ++ " img " ++ U32.show(hi)
+
+def go(n: Nat, +j: U32, +g: Cfg, fr: Fr) -> String:
+  match n:
+    case 0n:
+      Fr{w, fb, hf, hi} = fr
+      line(j, hf, hi)
+    case 1n+m:
+      Fr{w, fb, hf, hi} = fr
+      line(j, hf, hi) ++ "\n" ++ go(m, (j + 1 : U32), g, frame(g, (j + 1 : U32), w, fb))
+
+# The eye: 2.6 blocks over the ground (or the sea) at (x, z) (blocks), in 16.16.
+def eye(+lc: Nat, +x: U32, +z: U32, r: Array<U32> & U32) -> U32:
+  (hm, +h) = r
+  +g = U32.and(h, 255)
+  (U32.shln(Fx.sel((g < W.sea() : U32), W.sea(), g), 16n) + 170394 : U32)
+
+def cfg.p(+lc: Nat, +ws: U32, +hs: U32, +x: U32, +z: U32, +yaw: U32, +pitch: U32, +vd: U32,
+  +k: Nat, p: W.P2) -> String:
+  W.P2{hm, w} = p
+  +py = eye(lc, x, z, hm[W.col(lc, x, z)])
+  go(4n, 0, Cfg{lc, ws, hs, (U32.shln(x, 16n) + 32768 : U32), py, (U32.shln(z, 16n) + 32768 : U32), yaw, pitch, vd, k},
+    frame(Cfg{lc, ws, hs, (U32.shln(x, 16n) + 32768 : U32), py, (U32.shln(z, 16n) + 32768 : U32), yaw, pitch, vd, k},
+      0, R.tex(lc, w), Array.new(U32, 16n, 0)))
+
+def scene(+lc: Nat, +seed: U32) -> W.P2:
+  W.gen!(~W.Put.set, 13n, lc, seed, W.hm.new(lc), W.new(lc))
+
+# The bounds pass: (fb words other than 1 among the ws * hs) + (words past them other than 0).
+def bad.fin(+n: U32, r: Array<U32> & U32, +a: U32) -> U32:
+  (fb, +b) = r
+  (a + b - n : U32)
+
+def bad.cnt(+n: U32, r: Array<U32> & U32) -> U32:
+  (fb, +a) = r
+  bad.fin(n, W.ne(0, fb), a)
+
+def bad.p(+n: U32, p: R.P2) -> U32:
+  R.P2{w, fb} = p
+  bad.cnt(n, W.ne.n(n, 1, fb))
+
+def bad.s(+lc: Nat, +ws: U32, +hs: U32, +x: U32, +z: U32, p: W.P2) -> U32:
+  W.P2{hm, w} = p
+  bad.p((ws * hs : U32), R.fill!(~W.Put.count, R.cam(U32.shln(x, 16n), 3276800, U32.shln(z, 16n), 8192,
+    63000, ws, hs, 48, 2, lc), 5n, R.tex(lc, w), Array.new(U32, 16n, 0)))
+
+def main() -> IO(Unit):
+  do IO<Unit>:
+    IO.print(cfg.p(4n, 320, 180, 200, 60, 8192, 63000, 64, 5n, scene(4n, 1)))
+    IO.print("bounds tier 2 bad " ++ U32.show(bad.s(4n, 320, 180, 128, 128, scene(4n, 1))))
+#|render tier 0 d 0 fb 3912459736 img 1824677403
+#|render tier 1 d 0 fb 76007582 img 801644461
+#|render tier 2 d 0 fb 3413640298 img 3211785044
+#|render tier 2 d 4 fb 3413640298 img 3211785044
+#|render tier 2 d 11 fb 3413640298 img 3211785044
+#|bounds tier 2 bad 0

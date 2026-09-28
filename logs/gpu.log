@@ -21,3 +21,13 @@
 2026-09-27 23:08:32 gen-d12 rc=0 ms=328 load=0.25 drv=0 | BC_D=12 BC_R=12 BEND_GPROF_OUT=/tmp/claude-1000/-home-costamatheus97-vt-brainstorm-ai-bend2-hip/da5577c9-5150-4697-88b6-9b24e8da3ac3/scratchpad/gp-gen-12.txt /tmp/claude-1000/-home-costamatheus97-vt-brainstorm-ai-bend2-hip/da5577c9-5150-4697-88b6-9b24e8da3ac3/scratchpad/gen --gpu 3GB
 2026-09-27 23:08:33 gen-d13 rc=0 ms=339 load=0.25 drv=0 | BC_D=13 BC_R=12 BEND_GPROF_OUT=/tmp/claude-1000/-home-costamatheus97-vt-brainstorm-ai-bend2-hip/da5577c9-5150-4697-88b6-9b24e8da3ac3/scratchpad/gp-gen-13.txt /tmp/claude-1000/-home-costamatheus97-vt-brainstorm-ai-bend2-hip/da5577c9-5150-4697-88b6-9b24e8da3ac3/scratchpad/gen --gpu 3GB
 2026-09-27 23:08:34 gen-d14 rc=0 ms=329 load=0.25 drv=0 | BC_D=14 BC_R=12 BEND_GPROF_OUT=/tmp/claude-1000/-home-costamatheus97-vt-brainstorm-ai-bend2-hip/da5577c9-5150-4697-88b6-9b24e8da3ac3/scratchpad/gp-gen-14.txt /tmp/claude-1000/-home-costamatheus97-vt-brainstorm-ai-bend2-hip/da5577c9-5150-4697-88b6-9b24e8da3ac3/scratchpad/gen --gpu 3GB
+2026-09-27 23:23:45 test-render-build rc=0 ms=9424 load=0.17 drv=0 | /tmp/tmp.wcNgtZZIzA/render.g --gpu-build
+2026-09-27 23:23:55 test-render rc=0 ms=312 load=0.46 drv=0 | /tmp/tmp.wcNgtZZIzA/render.g --threads 16 --gpu 3GB
+2026-09-27 23:24:09 render-l0-build rc=0 ms=7825 load=0.64 drv=0 | build/render_l0 --gpu-build
+2026-09-27 23:24:21 render-320 rc=0 ms=327 load=0.93 drv=0 | BR_N=10 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:24:27 render-720 rc=0 ms=487 load=0.85 drv=0 | BR_N=20 BR_W=1280 BR_H=720 BR_K=7 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:24:32 render-1080 rc=0 ms=633 load=0.78 drv=0 | BR_N=20 BR_W=1920 BR_H=1080 BR_K=7 BEND_GPROF=1 build/render_l0 --threads 16 --gpu 3GB
+2026-09-27 23:25:01 test-render_full-build rc=0 ms=8966 load=0.70 drv=0 | /tmp/tmp.Zc8FGMcSJi/render_full.g --gpu-build
+2026-09-27 23:25:10 test-render_full rc=0 ms=1711 load=0.96 drv=0 | /tmp/tmp.Zc8FGMcSJi/render_full.g --threads 16 --gpu 3GB
+2026-09-27 23:25:29 test-world_full-build rc=0 ms=1691 load=1.01 drv=0 | /tmp/tmp.8FjSWAuPvp/world_full.g --gpu-build
+2026-09-27 23:25:31 test-world_full rc=0 ms=750 load=1.17 drv=0 | /tmp/tmp.8FjSWAuPvp/world_full.g --threads 16 --gpu 3GB

@@ -158,8 +158,14 @@ def set.if(on: Bool, +lc: Nat, +x: U32, +y: U32, +z: U32, +b: U32, w: Array<U32>
 def set(+lc: Nat, +x: U32, +y: U32, +z: U32, +b: U32, w: Array<U32>) -> Array<U32>:
   set.if(inside(lc, x, y, z), lc, x, y, z, b, w)
 
+# The scene array: the voxels in the lower half, tables in the upper half
+# (from aux(lc): the texture atlas, and room for more), so one handle
+# carries everything a ray reads.
 def new(+lc: Nat) -> Array<U32>:
-  Array.new(U32, lw(lc), 0)
+  Array.new(U32, Nat.add(lw(lc), 1n), 0)
+
+def aux(+lc: Nat) -> U32:
+  U32.shln(1, lw(lc))
 
 def hm.new(+lc: Nat) -> Array<U32>:
   Array.new(U32, lcols(lc), 0)
@@ -473,9 +479,17 @@ def hash.at(r: Array<U32> & U32) -> Array<U32> & U32:
   (a, +n) = r
   hash.go(U32.to_nat((n - 1 : U32)), 0, 0, a[0])
 
-# (a, the sum over words i of mix(i * 2654435769 ^ a[i])).
+# (a, the sum over words i < n of mix(i * 2654435769 ^ a[i])).
+def hash.n(+n: U32, a: Array<U32>) -> Array<U32> & U32:
+  hash.go(U32.to_nat((n - 1 : U32)), 0, 0, a[0])
+
+# (a, the hash of every word).
 def hash(a: Array<U32>) -> Array<U32> & U32:
   hash.at(Array.size(U32, a))
+
+# (w, the hash of the voxels: the lower half).
+def vhash(+lc: Nat, w: Array<U32>) -> Array<U32> & U32:
+  hash.n(aux(lc), w)
 
 # (a, the number of words not equal to v).
 def ne.go(n: Nat, +i: U32, +v: U32, +k: U32, r: Array<U32> & U32) -> Array<U32> & U32:
@@ -494,6 +508,10 @@ def ne.at(+v: U32, r: Array<U32> & U32) -> Array<U32> & U32:
 
 def ne(+v: U32, a: Array<U32>) -> Array<U32> & U32:
   ne.at(v, Array.size(U32, a))
+
+# (a, the number of words i < n not equal to v).
+def ne.n(+n: U32, +v: U32, a: Array<U32>) -> Array<U32> & U32:
+  ne.go(U32.to_nat((n - 1 : U32)), 0, v, 0, a[0])
 
 # The number of columns c whose (x, z) do not map back to c, or leave the world.
 def roundtrip(n: Nat, +lc: Nat, +c: U32, +bad: U32) -> U32:
@@ -524,9 +542,6 @@ def hist.go(n: Nat, +i: U32, cs: Array<U32>, r: Array<U32> & U32) -> Hist:
       +i2 = (i + 1 : U32)
       hist.go(p, i2, hist.word(wd, cs), w[i2])
 
-def hist.at(r: Array<U32> & U32) -> Hist:
-  (w, +n) = r
-  hist.go(U32.to_nat((n - 1 : U32)), 0, Array.new(U32, 4n, 0), w[0])
-
-def hist(w: Array<U32>) -> Hist:
-  hist.at(Array.size(U32, w))
+# The histogram of the voxels.
+def hist(+lc: Nat, w: Array<U32>) -> Hist:
+  hist.go(U32.to_nat((aux(lc) - 1 : U32)), 0, Array.new(U32, 4n, 0), w[0])

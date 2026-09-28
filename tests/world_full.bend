@@ -19,28 +19,33 @@ def show.hashes(r: Array<U32> & U32, +hh: U32) -> String:
   (w, +h) = r
   "hash " ++ U32.show(h) ++ " hm " ++ U32.show(hh)
 
-def show.hm(w: Array<U32>, r: Array<U32> & U32) -> String:
+def show.hm(+lc: Nat, w: Array<U32>, r: Array<U32> & U32) -> String:
   (hm, +hh) = r
-  show.hashes(W.hash(w), hh)
+  show.hashes(W.vhash(lc, w), hh)
 
-def line.p(p: W.P2) -> String:
+def line.p(+lc: Nat, p: W.P2) -> String:
   W.P2{hm, w} = p
-  show.hm(w, W.hash(hm))
+  show.hm(lc, w, W.hash(hm))
 
 def line(+d: Nat, +lc: Nat, +seed: U32) -> String:
   "world lc " ++ Nat.show(lc) ++ " seed " ++ U32.show(seed) ++ " d " ++ Nat.show(d) ++ " "
-    ++ line.p(gen(d, lc, seed))
+    ++ line.p(lc, gen(d, lc, seed))
 
-def bad.fin(r: Array<U32> & U32) -> U32:
-  (w, +n) = r
-  n
+def bad.aux(+lc: Nat, +a: U32, r: Array<U32> & U32) -> U32:
+  (w, +b) = r
+  (a + b - W.aux(lc) : U32)
 
-def bad.p(p: W.P2) -> U32:
+# words of the voxel half written other than once, plus words of the upper half written at all
+def bad.fin(+lc: Nat, r: Array<U32> & U32) -> U32:
+  (w, +a) = r
+  bad.aux(lc, a, W.ne(0, w))
+
+def bad.p(+lc: Nat, p: W.P2) -> U32:
   W.P2{hm, w} = p
-  bad.fin(W.ne(1, w))
+  bad.fin(lc, W.ne.n(W.aux(lc), 1, w))
 
 def bad(+d: Nat, +lc: Nat, +seed: U32) -> U32:
-  bad.p(count(d, lc, seed))
+  bad.p(lc, count(d, lc, seed))
 
 def cnt.show(n: Nat, +i: U32, r: Array<U32> & U32) -> String:
   match n:
@@ -56,12 +61,12 @@ def hist.h(h: W.Hist) -> String:
   W.Hist{w2, cs} = h
   "hist " ++ cnt.show(13n, 0, cs[0])
 
-def hist.p(p: W.P2) -> String:
+def hist.p(+lc: Nat, p: W.P2) -> String:
   W.P2{hm, w} = p
-  hist.h(W.hist(w))
+  hist.h(W.hist(lc, w))
 
 def hist(+lc: Nat, +seed: U32) -> String:
-  hist.p(gen(13n, lc, seed))
+  hist.p(lc, gen(13n, lc, seed))
 
 def main() -> IO(Unit):
   do IO<Unit>:
