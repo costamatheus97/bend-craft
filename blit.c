@@ -372,6 +372,25 @@ static void bc_shot_write(void) {
   fclose(fp);
 }
 
+// PLAY_SHOT_SERVER=path (a check, slow): the window's pixels read back from the server after
+// each frame, the last written as a P6 at exit, to compare with PLAY_SHOT's.
+static u32* bc_srv;
+static bool bc_srv_on;
+
+static void bc_srv_write(void) {
+  const char* path = getenv("PLAY_SHOT_SERVER");
+  FILE* fp = path != NULL && bc_srv != NULL ? fopen(path, "wb") : NULL;
+  if (fp == NULL) {
+    return;
+  }
+  fprintf(fp, "P6\n%u %u\n255\n", bc_sw, bc_sh);
+  for (u64 i = 0; i < (u64)bc_sw * bc_sh; i += 1) {
+    u8 px[3] = { (u8)(bc_srv[i] >> 16), (u8)(bc_srv[i] >> 8), (u8)bc_srv[i] };
+    fwrite(px, 1, 3, fp);
+  }
+  fclose(fp);
+}
+
 // The next 60 Hz tick (as window_frame.c's pace).
 static void bc_pace(void) {
   static u64 due;
@@ -444,17 +463,16 @@ static int bc_xerr_h(Display* d, XErrorEvent* ev) {
   return 0;
 }
 
-static XImage* bc_shm_img(BendWin* win, BcShmSeg* seg) {
+static XImage* bc_shm_img(BendWin* win, BcShmSeg* seg, u32 iw, u32 ih) {
   Display* d = win->dpy;
   int scr = DefaultScreen(d);
   XImage* src = win->img;
-  XImage* im = bc_xci(d, DefaultVisual(d, scr), DefaultDepth(d, scr), ZPixmap, NULL, seg,
-    src->width, src->height);
+  XImage* im = bc_xci(d, DefaultVisual(d, scr), DefaultDepth(d, scr), ZPixmap, NULL, seg, iw, ih);
   if (im == NULL) {
     return NULL;
   }
   if (im->bits_per_pixel != 32 || im->byte_order != src->byte_order
-      || im->bytes_per_line != src->width * 4 || im->red_mask != src->red_mask
+      || im->bytes_per_line != (int)iw * 4 || im->red_mask != src->red_mask
       || im->green_mask != src->green_mask || im->blue_mask != src->blue_mask) {
     XDestroyImage(im);
     return NULL;
@@ -488,7 +506,7 @@ static XImage* bc_shm_img(BendWin* win, BcShmSeg* seg) {
   return im;
 }
 
-static void bc_shm_init(BendWin* win) {
+static void bc_shm_init(BendWin* win, u32 iw, u32 ih) {
   bc_shm = 0;
   const char* v = getenv("PLAY_SHM");
   if (v != NULL && v[0] == '0') {
@@ -508,17 +526,80 @@ static void bc_shm_init(BendWin* win) {
   if (!bc_xq || !bc_xev || !bc_xci || !bc_xat || !bc_xput || !bc_xq(win->dpy)) {
     return;
   }
-  bc_simg[0] = bc_shm_img(win, &bc_seg[0]);
+  bc_simg[0] = bc_shm_img(win, &bc_seg[0], iw, ih);
   if (bc_simg[0] == NULL) {
     return;
   }
   bc_nimg = 1;
   if (!(v != NULL && v[0] == '1')) {
-    bc_simg[1] = bc_shm_img(win, &bc_seg[1]);
+    bc_simg[1] = bc_shm_img(win, &bc_seg[1], iw, ih);
     bc_nimg = bc_simg[1] != NULL ? 2 : 1;
   }
   bc_evdone = bc_xev(win->dpy);   // + ShmCompletion (0)
   bc_shm = 1;
+}
+
+// XRender: with an upscale (u > 0) the server scales, not the host. The
+// shared images hold the samples (ws x hs, a straight copy down); the put
+// goes to a pixmap of that size, and a composite with a 1 / 2^u transform
+// and the nearest filter draws it over the window: the same pixels as the
+// host's upscale (a window pixel (x, y) samples (x >> u, y >> u)), without
+// the host writing 4^u times the samples (33 MB a frame at 4K up4).
+// libXrender is opened at run time; without it, or with PLAY_XR=0, the host
+// upscales.
+typedef struct {
+  int matrix[3][3];     // XFixed, 16.16
+} BcXform;
+
+static int           bc_xr = -1;   // -1 untried, 0 off, 1 on
+static Pixmap        bc_xpix;
+static GC            bc_xgc;
+static unsigned long bc_xsrc, bc_xdst;
+static void*         (*bc_rfv)(Display*, Visual*);
+static unsigned long (*bc_rcp)(Display*, Drawable, void*, unsigned long, void*);
+static void          (*bc_rst)(Display*, unsigned long, BcXform*);
+static void          (*bc_rsf)(Display*, unsigned long, const char*, int*, int);
+static void          (*bc_rco)(Display*, int, unsigned long, unsigned long, unsigned long, int, int,
+  int, int, int, int, unsigned int, unsigned int);
+
+static void bc_xr_init(BendWin* win, u32 ws, u32 hs, u32 u) {
+  bc_xr = 0;
+  const char* v = getenv("PLAY_XR");
+  if (u == 0 || u > 8 || (v != NULL && v[0] == '0')) {
+    return;
+  }
+  void* lib = dlopen("libXrender.so.1", RTLD_NOW | RTLD_LOCAL);
+  if (lib == NULL) {
+    return;
+  }
+  bc_rfv = (void* (*)(Display*, Visual*))dlsym(lib, "XRenderFindVisualFormat");
+  bc_rcp = (unsigned long (*)(Display*, Drawable, void*, unsigned long, void*))dlsym(lib, "XRenderCreatePicture");
+  bc_rst = (void (*)(Display*, unsigned long, BcXform*))dlsym(lib, "XRenderSetPictureTransform");
+  bc_rsf = (void (*)(Display*, unsigned long, const char*, int*, int))dlsym(lib, "XRenderSetPictureFilter");
+  bc_rco = (void (*)(Display*, int, unsigned long, unsigned long, unsigned long, int, int, int, int, int,
+    int, unsigned int, unsigned int))dlsym(lib, "XRenderComposite");
+  if (!bc_rfv || !bc_rcp || !bc_rst || !bc_rsf || !bc_rco) {
+    return;
+  }
+  Display* d = win->dpy;
+  int scr = DefaultScreen(d);
+  void* fmt = bc_rfv(d, DefaultVisual(d, scr));
+  if (fmt == NULL) {
+    return;
+  }
+  XSync(d, False);
+  int (*old)(Display*, XErrorEvent*) = XSetErrorHandler(bc_xerr_h);
+  bc_xerr = 0;
+  bc_xpix = XCreatePixmap(d, win->win, ws, hs, DefaultDepth(d, scr));
+  bc_xgc  = XCreateGC(d, bc_xpix, 0, NULL);
+  bc_xsrc = bc_rcp(d, bc_xpix, fmt, 0, NULL);
+  bc_xdst = bc_rcp(d, win->win, fmt, 0, NULL);
+  BcXform t = { { { 65536 >> u, 0, 0 }, { 0, 65536 >> u, 0 }, { 0, 0, 65536 } } };
+  bc_rst(d, bc_xsrc, &t);
+  bc_rsf(d, bc_xsrc, "nearest", NULL, 0);
+  XSync(d, False);
+  XSetErrorHandler(old);
+  bc_xr = bc_xerr ? 0 : 1;
 }
 
 // Waits until the server has read the image this frame fills (the events that come meanwhile
@@ -544,7 +625,11 @@ static Term bc_frame(Env e, BendWin* win, Term fb, u32 ws, u32 hs, u32 u) {
     if (bc_hw) {
       atexit(bc_report);
     }
-    bc_shot_on = getenv("PLAY_SHOT") != NULL;
+    bc_srv_on = getenv("PLAY_SHOT_SERVER") != NULL;
+    if (bc_srv_on) {
+      atexit(bc_srv_write);
+    }
+    bc_shot_on = getenv("PLAY_SHOT") != NULL || bc_srv_on;
     if (bc_shot_on) {
       atexit(bc_shot_write);
     }
@@ -557,7 +642,13 @@ static Term bc_frame(Env e, BendWin* win, Term fb, u32 ws, u32 hs, u32 u) {
   bc_last = t0;
   if (win->dpy != NULL) {
     if (bc_shm < 0) {
-      bc_shm_init(win);
+      bc_shm_init(win, ws, hs);   // first at the samples' size, for the server's upscale
+      if (bc_shm == 1) {
+        bc_xr_init(win, ws, hs, u);
+      }
+      if (bc_shm == 1 && bc_xr != 1) {   // the host upscales: images of the window's size
+        bc_shm_init(win, win->img->width, win->img->height);
+      }
     }
     bc_pump(win);
     if (bc_shm == 1) {
@@ -567,9 +658,17 @@ static Term bc_frame(Env e, BendWin* win, Term fb, u32 ws, u32 hs, u32 u) {
   u64 t1 = io_tick();
   u32 w = win->img->width;
   u32 h = win->img->height;
-  XImage* img = bc_shm == 1 && bc_simg[bc_cur]->width == (int)w && bc_simg[bc_cur]->height == (int)h
+  bool xr = bc_xr == 1 && bc_shm == 1;
+  u32 iw = xr ? ws : w;
+  u32 ih = xr ? hs : h;
+  XImage* img = bc_shm == 1 && bc_simg[bc_cur]->width == (int)iw && bc_simg[bc_cur]->height == (int)ih
     ? bc_simg[bc_cur] : win->img;
-  bc_fill(e, (u32*)img->data, w, h, fb, ws, hs, u, img != win->img);
+  if (img == win->img) {
+    xr = false;
+    iw = w;
+    ih = h;
+  }
+  bc_fill(e, (u32*)img->data, iw, ih, fb, ws, hs, xr ? 0 : u, img != win->img);
   if (bc_hw) {
     bc_w = w;
     bc_h = h;
@@ -593,7 +692,12 @@ static Term bc_frame(Env e, BendWin* win, Term fb, u32 ws, u32 hs, u32 u) {
     }
     bc_wake = wake;
     GC gc = DefaultGC(win->dpy, DefaultScreen(win->dpy));
-    if (img != win->img) {
+    if (xr) {
+      bc_xput(win->dpy, bc_xpix, bc_xgc, img, 0, 0, 0, 0, iw, ih, bc_nimg == 2);
+      bc_rco(win->dpy, 1, bc_xsrc, 0, bc_xdst, 0, 0, 0, 0, 0, 0, w, h);   // PictOpSrc
+      bc_inuse[bc_cur] = true;
+      bc_cur = (bc_cur + 1) % bc_nimg;
+    } else if (img != win->img) {
       bc_xput(win->dpy, win->win, gc, img, 0, 0, 0, 0, w, h, bc_nimg == 2);
       bc_inuse[bc_cur] = true;
       bc_cur = (bc_cur + 1) % bc_nimg;
@@ -610,9 +714,27 @@ static Term bc_frame(Env e, BendWin* win, Term fb, u32 ws, u32 hs, u32 u) {
       free(bc_shot);
       bc_shot = malloc((u64)w * h * 4);
     }
-    memcpy(bc_shot, img->data, (u64)w * h * 4);
+    if (xr) {
+      bc_scale_rows(bc_shot, w, 0, h, (const u32*)img->data, ws, u);
+    } else {
+      memcpy(bc_shot, img->data, (u64)w * h * 4);
+    }
     bc_sw = w;
     bc_sh = h;
+  }
+  if (bc_srv_on && win->dpy != NULL) {   // PLAY_SHOT_SERVER: the server's pixels of the window
+    XImage* g = XGetImage(win->dpy, win->win, 0, 0, w, h, AllPlanes, ZPixmap);
+    if (g != NULL) {
+      if (bc_srv == NULL) {
+        bc_srv = malloc((u64)w * h * 4);
+      }
+      for (u32 y = 0; y < h; y += 1) {
+        for (u32 x = 0; x < w; x += 1) {
+          bc_srv[(u64)y * w + x] = (u32)XGetPixel(g, x, y) & 0xffffff;
+        }
+      }
+      XDestroyImage(g);
+    }
   }
   Term list = bc_list(e, win->evs, win->n);
   win->n = 0;

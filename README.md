@@ -95,9 +95,14 @@ There are three ways to get a frame from the framebuffer to the window
     reads it in place. There are two such images, and each one is reused
     only once the server's ShmCompletion event says it has finished
     reading it.
-  - On the GPU lane the copy down is one `cuMemcpyDtoH` into page-locked
-    memory. An upscale widens each sample row once and copies it,
+  - With an upscale (`PLAY_U` > 0), the image holds the samples only. It
+    is put into a pixmap, and XRender draws that pixmap onto the window
+    through a 1/2^U scale with the "nearest" filter, so the X server does
+    the upscale, not the game. Without XRender, or with `PLAY_XR=0`, the
+    game upscales itself: it widens each sample row once and copies it,
     split over 4 threads for large windows.
+  - On the GPU lane the copy down is one `cuMemcpyDtoH` into page-locked
+    memory.
   - Mode 2 shows the same pixels as mode 1, on the CPU and GPU lanes.
 
 **What `blit.c` depends on.** It is a package effect that uses runtime
@@ -115,7 +120,9 @@ internals:
   without it reads `e.mem`, as upstream's `window_fill` does.
 - **libXext.** It opens `libXext.so.6` at run time for MIT-SHM, because
   the game links only libX11. Without it, without the extension, or with
-  `PLAY_SHM=0`, the put falls back to `XPutImage`.
+  `PLAY_SHM=0`, the put falls back to `XPutImage`. In the same way it
+  opens `libXrender.so.1` for the server-side upscale, and without it the
+  game upscales on the host.
 
 `Blit.ok` is 1 only on Linux with X11, under the same guard as
 `window_open.c`. It is 0 elsewhere, and there `play` uses `Window.frame`.
@@ -156,7 +163,9 @@ depend on the fork. `gpu` runs every `!` on the GPU.
 
 `play.bend` runs a real window, so it is not in `run_tests.sh`. Its frames are
 compared as P6 files (`PLAY_SHOT=path` writes the window's last frame): mode 1
-against mode 2, and each lane against the others.
+against mode 2, and each lane against the others. `PLAY_SHOT_SERVER=path`
+reads the window back from the X server instead (`XGetImage`), which checks
+what the server actually shows, including its upscale.
 
 ## Benchmarks
 
