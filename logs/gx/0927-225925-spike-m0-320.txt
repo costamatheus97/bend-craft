@@ -1,0 +1,7 @@
+cfg ws 320 hs 180 k 5
+f 0 bang_us 26912 conv_us 0 show_us 784
+f 1 bang_us 3605 conv_us 0 show_us 841
+f 2 bang_us 4338 conv_us 0 show_us 849
+f 3 bang_us 3318 conv_us 0 show_us 860
+HW frames=5 size=320x180 fill_ms med 0.838 p95 0.852 p99 0.852 | frame_ms med 4.377 p95 5.186 p99 5.186
+f 4 bang_us 3318 conv_us 0 show_us 859

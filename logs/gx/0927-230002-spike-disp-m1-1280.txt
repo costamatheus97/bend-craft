@@ -1,0 +1,244 @@
+gprof init level 0 CUBE_LOG 6 LANES 8192 per 3 sms 30 budget_ns 250000000
+cfg ws 1280 hs 720 k 7
+f 0 bang_us 25730 conv_us 1 show_us 5590
+f 1 bang_us 4616 conv_us 0 show_us 3179
+f 2 bang_us 4753 conv_us 0 show_us 3277
+f 3 bang_us 4955 conv_us 0 show_us 3145
+f 4 bang_us 4829 conv_us 0 show_us 3087
+f 5 bang_us 4997 conv_us 1 show_us 3586
+f 6 bang_us 5043 conv_us 1 show_us 3192
+f 7 bang_us 4692 conv_us 0 show_us 3110
+f 8 bang_us 4948 conv_us 0 show_us 3436
+f 9 bang_us 5653 conv_us 0 show_us 3426
+f 10 bang_us 4666 conv_us 0 show_us 3718
+f 11 bang_us 5973 conv_us 1 show_us 3005
+f 12 bang_us 4728 conv_us 1 show_us 3073
+f 13 bang_us 4755 conv_us 0 show_us 3064
+f 14 bang_us 5022 conv_us 1 show_us 3372
+f 15 bang_us 4726 conv_us 0 show_us 3060
+f 16 bang_us 4601 conv_us 1 show_us 3343
+f 17 bang_us 4775 conv_us 0 show_us 3061
+f 18 bang_us 3775 conv_us 1 show_us 2939
+f 19 bang_us 4219 conv_us 0 show_us 3192
+f 20 bang_us 3999 conv_us 0 show_us 3330
+f 21 bang_us 4134 conv_us 0 show_us 2834
+f 22 bang_us 4242 conv_us 1 show_us 2931
+f 23 bang_us 4843 conv_us 0 show_us 3088
+f 24 bang_us 5467 conv_us 1 show_us 3357
+f 25 bang_us 4750 conv_us 0 show_us 2957
+f 26 bang_us 4771 conv_us 1 show_us 3081
+f 27 bang_us 4671 conv_us 0 show_us 3015
+f 28 bang_us 4674 conv_us 1 show_us 3413
+f 29 bang_us 4967 conv_us 0 show_us 3061
+f 30 bang_us 4814 conv_us 1 show_us 2963
+f 31 bang_us 4697 conv_us 0 show_us 2871
+f 32 bang_us 4922 conv_us 0 show_us 3104
+f 33 bang_us 5237 conv_us 0 show_us 3175
+f 34 bang_us 5014 conv_us 0 show_us 3089
+f 35 bang_us 5101 conv_us 0 show_us 3028
+f 36 bang_us 5301 conv_us 0 show_us 3265
+f 37 bang_us 5207 conv_us 0 show_us 3042
+f 38 bang_us 5169 conv_us 1 show_us 3392
+f 39 bang_us 4836 conv_us 0 show_us 3539
+f 40 bang_us 4902 conv_us 0 show_us 2938
+f 41 bang_us 4664 conv_us 0 show_us 3007
+f 42 bang_us 10410 conv_us 1 show_us 3636
+f 43 bang_us 5109 conv_us 1 show_us 2923
+f 44 bang_us 4787 conv_us 0 show_us 3022
+f 45 bang_us 4899 conv_us 1 show_us 3168
+f 46 bang_us 4938 conv_us 0 show_us 3559
+f 47 bang_us 4851 conv_us 1 show_us 2929
+f 48 bang_us 4612 conv_us 0 show_us 3328
+f 49 bang_us 4611 conv_us 0 show_us 2935
+f 50 bang_us 4516 conv_us 0 show_us 3255
+f 51 bang_us 4635 conv_us 0 show_us 3114
+f 52 bang_us 4592 conv_us 0 show_us 2988
+f 53 bang_us 4648 conv_us 0 show_us 2981
+f 54 bang_us 4476 conv_us 0 show_us 3019
+f 55 bang_us 4815 conv_us 0 show_us 2925
+f 56 bang_us 4629 conv_us 0 show_us 2949
+f 57 bang_us 4403 conv_us 0 show_us 2927
+f 58 bang_us 4481 conv_us 0 show_us 2949
+f 59 bang_us 4824 conv_us 0 show_us 3183
+f 60 bang_us 5042 conv_us 0 show_us 3232
+f 61 bang_us 5017 conv_us 0 show_us 3299
+f 62 bang_us 4448 conv_us 1 show_us 2977
+f 63 bang_us 4541 conv_us 0 show_us 3231
+f 64 bang_us 4678 conv_us 0 show_us 3034
+f 65 bang_us 4557 conv_us 1 show_us 3165
+f 66 bang_us 4219 conv_us 0 show_us 2929
+f 67 bang_us 4504 conv_us 0 show_us 3035
+f 68 bang_us 4752 conv_us 0 show_us 3114
+f 69 bang_us 4760 conv_us 0 show_us 3087
+f 70 bang_us 4496 conv_us 0 show_us 2999
+f 71 bang_us 4494 conv_us 1 show_us 2850
+f 72 bang_us 4385 conv_us 0 show_us 2979
+f 73 bang_us 4953 conv_us 1 show_us 3058
+f 74 bang_us 4622 conv_us 0 show_us 2897
+f 75 bang_us 4429 conv_us 0 show_us 2887
+f 76 bang_us 4538 conv_us 1 show_us 2939
+f 77 bang_us 4647 conv_us 0 show_us 3174
+f 78 bang_us 4414 conv_us 1 show_us 3006
+f 79 bang_us 4681 conv_us 1 show_us 2926
+f 80 bang_us 4634 conv_us 0 show_us 2971
+f 81 bang_us 5011 conv_us 0 show_us 3260
+f 82 bang_us 4472 conv_us 0 show_us 2999
+f 83 bang_us 4422 conv_us 1 show_us 2785
+f 84 bang_us 4586 conv_us 1 show_us 2954
+f 85 bang_us 4514 conv_us 0 show_us 3543
+f 86 bang_us 5239 conv_us 0 show_us 3202
+f 87 bang_us 4467 conv_us 0 show_us 3062
+f 88 bang_us 4475 conv_us 1 show_us 2916
+f 89 bang_us 4722 conv_us 1 show_us 3868
+f 90 bang_us 4688 conv_us 0 show_us 3313
+f 91 bang_us 5041 conv_us 0 show_us 3551
+f 92 bang_us 4610 conv_us 1 show_us 2914
+f 93 bang_us 4938 conv_us 0 show_us 3269
+f 94 bang_us 5066 conv_us 1 show_us 3040
+f 95 bang_us 4438 conv_us 0 show_us 2865
+f 96 bang_us 4522 conv_us 1 show_us 2817
+f 97 bang_us 4542 conv_us 0 show_us 3138
+f 98 bang_us 4724 conv_us 0 show_us 3137
+f 99 bang_us 4626 conv_us 0 show_us 3113
+f 100 bang_us 4387 conv_us 1 show_us 2964
+f 101 bang_us 4558 conv_us 0 show_us 3054
+f 102 bang_us 5320 conv_us 0 show_us 3386
+f 103 bang_us 4493 conv_us 0 show_us 2892
+f 104 bang_us 4569 conv_us 0 show_us 2838
+f 105 bang_us 4826 conv_us 0 show_us 3134
+f 106 bang_us 5159 conv_us 1 show_us 3345
+f 107 bang_us 4554 conv_us 0 show_us 2688
+f 108 bang_us 4440 conv_us 0 show_us 2841
+f 109 bang_us 4920 conv_us 0 show_us 3088
+f 110 bang_us 4466 conv_us 1 show_us 3037
+f 111 bang_us 5130 conv_us 0 show_us 3020
+f 112 bang_us 5255 conv_us 0 show_us 3413
+f 113 bang_us 4767 conv_us 1 show_us 3040
+f 114 bang_us 5015 conv_us 0 show_us 3075
+f 115 bang_us 5108 conv_us 0 show_us 3213
+f 116 bang_us 4697 conv_us 0 show_us 3495
+f 117 bang_us 4749 conv_us 0 show_us 16841
+f 118 bang_us 4659 conv_us 1 show_us 3077
+HW frames=120 size=1280x720 fill_ms med 1.919 p95 2.228 p99 2.381 | frame_ms med 7.826 p95 8.625 p99 13.463
+f 119 bang_us 4688 conv_us 0 show_us 2894
+gprof level 0 CUBE_LOG 6 LANES 8192 budget_ns 250000000
+turn 0 turn=25681774 up=20739394 run=3584276 down=1357637 pass=3583569 hdrup=261687 hdrdn=220346 wait=3032357 launch=68034 passes=2 kerns=8 parkloops=0
+turn 1 turn=4605649 up=795390 run=2640000 down=1170119 pass=2639691 hdrup=247963 hdrdn=194520 wait=2157630 launch=38961 passes=2 kerns=8 parkloops=0
+turn 2 turn=4744982 up=874957 run=2642481 down=1227445 pass=2642261 hdrup=248860 hdrdn=174173 wait=2170348 launch=48344 passes=2 kerns=8 parkloops=0
+turn 3 turn=4946115 up=885654 run=2637688 down=1422583 pass=2637450 hdrup=241250 hdrdn=192129 wait=2167001 launch=36471 passes=2 kerns=8 parkloops=0
+turn 4 turn=4820445 up=897665 run=2612729 down=1309801 pass=2612531 hdrup=233094 hdrdn=184291 wait=2144213 launch=50286 passes=2 kerns=8 parkloops=0
+turn 5 turn=4986790 up=961217 run=2689867 down=1335208 pass=2689647 hdrup=274504 hdrdn=191492 wait=2192297 launch=30676 passes=2 kerns=8 parkloops=0
+turn 6 turn=5034507 up=869231 run=2716011 down=1449136 pass=2715734 hdrup=241410 hdrdn=187977 wait=2231957 launch=53741 passes=2 kerns=8 parkloops=0
+turn 7 turn=4684000 up=820020 run=2594893 down=1268957 pass=2594744 hdrup=216641 hdrdn=158079 wait=2186930 launch=32580 passes=2 kerns=8 parkloops=0
+turn 8 turn=4910889 up=829143 run=2689569 down=1392057 pass=2689440 hdrup=229658 hdrdn=207487 wait=2221808 launch=29987 passes=2 kerns=8 parkloops=0
+turn 9 turn=5641044 up=1132521 run=2906777 down=1601458 pass=2906399 hdrup=310688 hdrdn=251378 wait=2248111 launch=95043 passes=2 kerns=8 parkloops=0
+turn 10 turn=4655734 up=903401 run=2637768 down=1114425 pass=2637579 hdrup=244209 hdrdn=183594 wait=2159780 launch=49389 passes=2 kerns=8 parkloops=0
+turn 11 turn=5963842 up=773359 run=2575720 down=2614633 pass=2575501 hdrup=199330 hdrdn=173823 wait=2168296 launch=33415 passes=2 kerns=8 parkloops=0
+turn 12 turn=4720273 up=738501 run=2658555 down=1323097 pass=2658405 hdrup=201760 hdrdn=243710 wait=2162409 launch=49819 passes=2 kerns=8 parkloops=0
+turn 13 turn=4747043 up=717706 run=2696161 down=1333026 pass=2695982 hdrup=224160 hdrdn=220345 wait=2209219 launch=41571 passes=2 kerns=8 parkloops=0
+turn 14 turn=5012585 up=789414 run=2586019 down=1637002 pass=2585799 hdrup=211709 hdrdn=196034 wait=2128288 launch=49080 passes=2 kerns=8 parkloops=0
+turn 15 turn=4712266 up=847339 run=2615240 down=1249447 pass=2614873 hdrup=220733 hdrdn=179332 wait=2159870 launch=54291 passes=2 kerns=8 parkloops=0
+turn 16 turn=4592183 up=718432 run=2667020 down=1206551 pass=2666791 hdrup=231928 hdrdn=198245 wait=2197667 launch=38273 passes=2 kerns=8 parkloops=0
+turn 17 turn=4761754 up=777403 run=2622551 down=1361313 pass=2622183 hdrup=206282 hdrdn=189221 wait=2169272 launch=56561 passes=2 kerns=8 parkloops=0
+turn 18 turn=3765938 up=811694 run=1642620 down=1311504 pass=1642252 hdrup=157142 hdrdn=166026 wait=1269584 launch=48920 passes=2 kerns=8 parkloops=0
+turn 19 turn=4174787 up=810548 run=1892306 down=1471764 pass=1892117 hdrup=226340 hdrdn=217507 wait=1430869 launch=16794 passes=2 kerns=8 parkloops=0
+turn 20 turn=3990547 up=823247 run=1844651 down=1322509 pass=1844372 hdrup=181104 hdrdn=168158 wait=1453479 launch=40914 passes=2 kerns=8 parkloops=0
+turn 21 turn=4088011 up=853873 run=2006264 down=1227725 pass=2006104 hdrup=218622 hdrdn=177956 wait=1558362 launch=50456 passes=2 kerns=8 parkloops=0
+turn 22 turn=4233909 up=828516 run=2093540 down=1311654 pass=2093231 hdrup=177578 hdrdn=181045 wait=1682737 launch=51223 passes=2 kerns=8 parkloops=0
+turn 23 turn=4835265 up=941188 run=2456883 down=1437045 pass=2456644 hdrup=240453 hdrdn=263490 wait=1853295 launch=98690 passes=2 kerns=8 parkloops=0
+turn 24 turn=5459192 up=1034550 run=2721548 down=1702954 pass=2721269 hdrup=292910 hdrdn=244249 wait=2076927 launch=106487 passes=2 kerns=8 parkloops=0
+turn 25 turn=4741973 up=768290 run=2661731 down=1311792 pass=2661533 hdrup=215137 hdrdn=240871 wait=2156364 launch=48463 passes=2 kerns=8 parkloops=0
+turn 26 turn=4762940 up=844680 run=2641813 down=1276298 pass=2641615 hdrup=213862 hdrdn=196880 wait=2180098 launch=50125 passes=2 kerns=8 parkloops=0
+turn 27 turn=4663144 up=821912 run=2628038 down=1213054 pass=2627809 hdrup=209140 hdrdn=199560 wait=2185774 launch=32587 passes=2 kerns=8 parkloops=0
+turn 28 turn=4666032 up=749825 run=2593250 down=1322799 pass=2593020 hdrup=242814 hdrdn=168765 wait=2141055 launch=39807 passes=2 kerns=8 parkloops=0
+turn 29 turn=4957598 up=886839 run=2701500 down=1368971 pass=2701122 hdrup=251877 hdrdn=215166 wait=2179012 launch=54220 passes=2 kerns=8 parkloops=0
+turn 30 turn=4805615 up=774853 run=2722594 down=1307998 pass=2722385 hdrup=250831 hdrdn=234717 wait=2209268 launch=26941 passes=2 kerns=8 parkloops=0
+turn 31 turn=4688720 up=817810 run=2598260 down=1272523 pass=2598050 hdrup=220962 hdrdn=183136 wait=2164302 launch=29114 passes=2 kerns=8 parkloops=0
+turn 32 turn=4913309 up=801425 run=2707437 down=1404287 pass=2706838 hdrup=216281 hdrdn=256867 wait=2200354 launch=32588 passes=2 kerns=8 parkloops=0
+turn 33 turn=5228937 up=1013305 run=2754465 down=1461017 pass=2754176 hdrup=282742 hdrdn=243869 wait=2151393 launch=75553 passes=2 kerns=8 parkloops=0
+turn 34 turn=5005125 up=847857 run=2814830 down=1342230 pass=2814570 hdrup=275013 hdrdn=228900 wait=2258179 launch=51541 passes=2 kerns=8 parkloops=0
+turn 35 turn=5093516 up=953119 run=2829470 down=1310778 pass=2829252 hdrup=258988 hdrdn=309414 wait=2208651 launch=51432 passes=2 kerns=8 parkloops=0
+turn 36 turn=5257869 up=828725 run=3016470 down=1412464 pass=3016251 hdrup=329422 hdrdn=411528 wait=2179699 launch=94634 passes=2 kerns=8 parkloops=0
+turn 37 turn=5198928 up=967790 run=2775718 down=1455320 pass=2775340 hdrup=280312 hdrdn=253112 wait=2161392 launch=79767 passes=2 kerns=8 parkloops=0
+turn 38 turn=5161072 up=935302 run=2735591 down=1490009 pass=2735322 hdrup=251519 hdrdn=230444 wait=2171362 launch=81240 passes=2 kerns=8 parkloops=0
+turn 39 turn=4827109 up=837051 run=2643446 down=1346443 pass=2643147 hdrup=204579 hdrdn=183764 wait=2203961 launch=50107 passes=2 kerns=8 parkloops=0
+turn 40 turn=4891050 up=888134 run=2626097 down=1376610 pass=2625788 hdrup=173794 hdrdn=188704 wait=2193015 launch=69546 passes=2 kerns=8 parkloops=0
+turn 41 turn=4656960 up=841404 run=2561788 down=1253660 pass=2561518 hdrup=187778 hdrdn=186582 wait=2153825 launch=32758 passes=2 kerns=8 parkloops=0
+turn 42 turn=10400367 up=831713 run=2733429 down=6835045 pass=2733101 hdrup=211620 hdrdn=240761 wait=2269345 launch=10697 passes=2 kerns=8 parkloops=0
+turn 43 turn=5101146 up=909816 run=2861710 down=1329411 pass=2861281 hdrup=288031 hdrdn=215753 wait=2312898 launch=43652 passes=2 kerns=8 parkloops=0
+turn 44 turn=4777929 up=774415 run=2628985 down=1374359 pass=2628865 hdrup=185666 hdrdn=249077 wait=2161961 launch=31562 passes=2 kerns=8 parkloops=0
+turn 45 turn=4858550 up=852557 run=2678175 down=1327679 pass=2678015 hdrup=197179 hdrdn=218881 wait=2223043 launch=38334 passes=2 kerns=8 parkloops=0
+turn 46 turn=4929911 up=835258 run=2670565 down=1423958 pass=2670276 hdrup=191513 hdrdn=231092 wait=2171720 launch=75285 passes=2 kerns=8 parkloops=0
+turn 47 turn=4827796 up=1055454 run=2623686 down=1148487 pass=2623327 hdrup=190466 hdrdn=196004 wait=2177468 launch=58641 passes=2 kerns=8 parkloops=0
+turn 48 turn=4603098 up=768091 run=2570711 down=1264166 pass=2570541 hdrup=164800 hdrdn=178804 wait=2190435 launch=35923 passes=2 kerns=8 parkloops=0
+turn 49 turn=4603138 up=875067 run=2531929 down=1196013 pass=2531759 hdrup=148896 hdrdn=188425 wait=2142879 launch=50944 passes=2 kerns=8 parkloops=0
+turn 50 turn=4506202 up=819871 run=2466873 down=1219299 pass=2466764 hdrup=141734 hdrdn=177977 wait=2113558 launch=32898 passes=2 kerns=8 parkloops=0
+turn 51 turn=4617131 up=853245 run=2489352 down=1274286 pass=2489143 hdrup=143248 hdrdn=190098 wait=2121484 launch=33694 passes=2 kerns=8 parkloops=0
+turn 52 turn=4584164 up=798407 run=2587622 down=1197916 pass=2587492 hdrup=150987 hdrdn=163345 wait=2218979 launch=53582 passes=2 kerns=8 parkloops=0
+turn 53 turn=4639888 up=787492 run=2556280 down=1295978 pass=2556040 hdrup=142433 hdrdn=190795 wait=2166492 launch=55524 passes=2 kerns=8 parkloops=0
+turn 54 turn=4468205 up=767205 run=2520633 down=1180208 pass=2520505 hdrup=153288 hdrdn=167869 wait=2167189 launch=31582 passes=2 kerns=8 parkloops=0
+turn 55 turn=4807648 up=1074816 run=2578102 down=1154591 pass=2577952 hdrup=173814 hdrdn=181811 wait=2188553 launch=33096 passes=2 kerns=8 parkloops=0
+turn 56 turn=4620439 up=775132 run=2644213 down=1201004 pass=2643636 hdrup=171384 hdrdn=194609 wait=2226530 launch=50475 passes=2 kerns=8 parkloops=0
+turn 57 turn=4394804 up=724448 run=2463158 down=1207048 pass=2463039 hdrup=138578 hdrdn=181105 wait=2111894 launch=30815 passes=2 kerns=8 parkloops=0
+turn 58 turn=4472907 up=734358 run=2550523 down=1187946 pass=2549896 hdrup=179072 hdrdn=178037 wait=2156273 launch=35854 passes=2 kerns=8 parkloops=0
+turn 59 turn=4816333 up=778210 run=2804542 down=1233322 pass=2804322 hdrup=249835 hdrdn=365477 wait=2142810 launch=45268 passes=2 kerns=8 parkloops=0
+turn 60 turn=5033889 up=951218 run=2721629 down=1360843 pass=2721410 hdrup=214390 hdrdn=251907 wait=2144980 launch=109345 passes=2 kerns=8 parkloops=0
+turn 61 turn=5004908 up=821983 run=2823106 down=1359689 pass=2822928 hdrup=242227 hdrdn=276407 wait=2200256 launch=102951 passes=2 kerns=8 parkloops=0
+turn 62 turn=4438596 up=786516 run=2493923 down=1157918 pass=2493763 hdrup=129942 hdrdn=174980 wait=2155826 launch=32279 passes=2 kerns=8 parkloops=0
+turn 63 turn=4531737 up=832439 run=2524479 down=1174651 pass=2524319 hdrup=131496 hdrdn=181890 wait=2156005 launch=53980 passes=2 kerns=8 parkloops=0
+turn 64 turn=4669946 up=785072 run=2576836 down=1307869 pass=2576607 hdrup=152531 hdrdn=194271 wait=2197765 launch=31361 passes=2 kerns=8 parkloops=0
+turn 65 turn=4549327 up=814394 run=2581847 down=1152968 pass=2581428 hdrup=136904 hdrdn=250633 wait=2138527 launch=54748 passes=2 kerns=8 parkloops=0
+turn 66 turn=4210852 up=748541 run=2447830 down=1014371 pass=2447672 hdrup=119993 hdrdn=170717 wait=2142201 launch=14292 passes=2 kerns=8 parkloops=0
+turn 67 turn=4496402 up=829602 run=2534887 down=1131743 pass=2534609 hdrup=152750 hdrdn=176434 wait=2145926 launch=58902 passes=2 kerns=8 parkloops=0
+turn 68 turn=4743449 up=902884 run=2635279 down=1205127 pass=2635130 hdrup=196015 hdrdn=220485 wait=2132909 launch=84986 passes=2 kerns=8 parkloops=0
+turn 69 turn=4751405 up=797551 run=2878431 down=1075214 pass=2878292 hdrup=275353 hdrdn=245941 wait=2335606 launch=20777 passes=2 kerns=8 parkloops=0
+turn 70 turn=4487457 up=795739 run=2551041 down=1140577 pass=2550881 hdrup=167340 hdrdn=163457 wait=2163783 launch=55644 passes=2 kerns=8 parkloops=0
+turn 71 turn=4486273 up=814323 run=2481454 down=1190347 pass=2481324 hdrup=135878 hdrdn=186882 wait=2104943 launch=52934 passes=2 kerns=8 parkloops=0
+turn 72 turn=4376627 up=732376 run=2503673 down=1140449 pass=2503544 hdrup=128588 hdrdn=175607 wait=2186920 launch=11971 passes=2 kerns=8 parkloops=0
+turn 73 turn=4945198 up=825976 run=2666342 down=1452781 pass=2666043 hdrup=179352 hdrdn=287700 wait=2162399 launch=35845 passes=2 kerns=8 parkloops=0
+turn 74 turn=4612879 up=725225 run=2540195 down=1347319 pass=2540065 hdrup=165567 hdrdn=183236 wait=2136374 launch=54290 passes=2 kerns=8 parkloops=0
+turn 75 turn=4420809 up=738113 run=2519410 down=1163137 pass=2519261 hdrup=157979 hdrdn=199082 wait=2126705 launch=34888 passes=2 kerns=8 parkloops=0
+turn 76 turn=4529259 up=763739 run=2520466 down=1244526 pass=2520336 hdrup=146396 hdrdn=158227 wait=2182318 launch=32845 passes=2 kerns=8 parkloops=0
+turn 77 turn=4639103 up=710844 run=2465907 down=1462202 pass=2465758 hdrup=138418 hdrdn=155956 wait=2140419 launch=30406 passes=2 kerns=8 parkloops=0
+turn 78 turn=4406079 up=733681 run=2528682 down=1143626 pass=2528483 hdrup=145329 hdrdn=168136 wait=2153894 launch=60374 passes=2 kerns=8 parkloops=0
+turn 79 turn=4672645 up=727316 run=2689070 down=1256179 pass=2688921 hdrup=196921 hdrdn=243093 wait=2208840 launch=39399 passes=2 kerns=8 parkloops=0
+turn 80 turn=4591305 up=748739 run=2640637 down=1201829 pass=2640458 hdrup=164462 hdrdn=248332 wait=2184858 launch=42079 passes=2 kerns=8 parkloops=0
+turn 81 turn=5002407 up=895972 run=2710025 down=1396190 pass=2709836 hdrup=203922 hdrdn=239278 wait=2182966 launch=82922 passes=2 kerns=8 parkloops=0
+turn 82 turn=4464113 up=792990 run=2514011 down=1156963 pass=2513853 hdrup=138797 hdrdn=184620 wait=2140857 launch=48950 passes=2 kerns=8 parkloops=0
+turn 83 turn=4414106 up=764974 run=2473237 down=1175786 pass=2473097 hdrup=137322 hdrdn=157660 wait=2133446 launch=44110 passes=2 kerns=8 parkloops=0
+turn 84 turn=4577731 up=850716 run=2573977 down=1152889 pass=2573838 hdrup=170308 hdrdn=167160 wait=2223102 launch=12768 passes=2 kerns=8 parkloops=0
+turn 85 turn=4506301 up=783737 run=2494272 down=1228143 pass=2494153 hdrup=141357 hdrdn=151466 wait=2169750 launch=31084 passes=2 kerns=8 parkloops=0
+turn 86 turn=5229495 up=990558 run=2707237 down=1531540 pass=2707048 hdrup=197060 hdrdn=257056 wait=2159899 launch=92255 passes=2 kerns=8 parkloops=0
+turn 87 turn=4459688 up=758390 run=2501626 down=1199533 pass=2501486 hdrup=133663 hdrdn=177222 wait=2158801 launch=31272 passes=2 kerns=8 parkloops=0
+turn 88 turn=4467712 up=776908 run=2474982 down=1215662 pass=2474852 hdrup=131253 hdrdn=167972 wait=2142532 launch=32538 passes=2 kerns=8 parkloops=0
+turn 89 turn=4715047 up=758570 run=2488015 down=1468333 pass=2487867 hdrup=139089 hdrdn=152172 wait=2151762 launch=44266 passes=2 kerns=8 parkloops=0
+turn 90 turn=4677214 up=822947 run=2579593 down=1274334 pass=2579266 hdrup=181463 hdrdn=188961 wait=2175469 launch=32735 passes=2 kerns=8 parkloops=0
+turn 91 turn=5033538 up=941984 run=2690596 down=1400799 pass=2690427 hdrup=215972 hdrdn=236014 wait=2147560 launch=90234 passes=2 kerns=8 parkloops=0
+turn 92 turn=4602442 up=778561 run=2649467 down=1174274 pass=2649168 hdrup=208594 hdrdn=197623 wait=2199691 launch=42783 passes=2 kerns=8 parkloops=0
+turn 93 turn=4928409 up=765518 run=2511612 down=1651010 pass=2511293 hdrup=137207 hdrdn=188473 wait=2147660 launch=37296 passes=2 kerns=8 parkloops=0
+turn 94 turn=5057065 up=933431 run=2723153 down=1400341 pass=2722934 hdrup=221816 hdrdn=246529 wait=2171755 launch=82089 passes=2 kerns=8 parkloops=0
+turn 95 turn=4430515 up=753292 run=2475649 down=1201484 pass=2475450 hdrup=121865 hdrdn=165573 wait=2173207 launch=14247 passes=2 kerns=8 parkloops=0
+turn 96 turn=4514070 up=806111 run=2543383 down=1164437 pass=2543163 hdrup=142385 hdrdn=165344 wait=2184269 launch=50599 passes=2 kerns=8 parkloops=0
+turn 97 turn=4534309 up=780384 run=2531593 down=1222203 pass=2531384 hdrup=164080 hdrdn=174285 wait=2155196 launch=37060 passes=2 kerns=8 parkloops=0
+turn 98 turn=4715067 up=886736 run=2609243 down=1218490 pass=2608896 hdrup=179064 hdrdn=224226 wait=2192463 launch=12614 passes=2 kerns=8 parkloops=0
+turn 99 turn=4616946 up=892371 run=2543959 down=1180386 pass=2543809 hdrup=166569 hdrdn=189438 wait=2154161 launch=33007 passes=2 kerns=8 parkloops=0
+turn 100 turn=4378953 up=768944 run=2460954 down=1148955 pass=2460796 hdrup=149783 hdrdn=172802 wait=2104421 launch=33246 passes=2 kerns=8 parkloops=0
+turn 101 turn=4550230 up=755065 run=2570703 down=1224324 pass=2570403 hdrup=167046 hdrdn=161173 wait=2177520 launch=63789 passes=2 kerns=8 parkloops=0
+turn 102 turn=5310761 up=1006560 run=2744838 down=1559243 pass=2744678 hdrup=229950 hdrdn=264618 wait=2166069 launch=83284 passes=2 kerns=8 parkloops=0
+turn 103 turn=4484579 up=796174 run=2547365 down=1140900 pass=2547205 hdrup=149054 hdrdn=186700 wait=2154839 launch=55835 passes=2 kerns=8 parkloops=0
+turn 104 turn=4556285 up=797977 run=2566860 down=1191269 pass=2566640 hdrup=139218 hdrdn=189289 wait=2178137 launch=59250 passes=2 kerns=8 parkloops=0
+turn 105 turn=4818084 up=830284 run=2612189 down=1375431 pass=2612011 hdrup=177093 hdrdn=218460 wait=2162494 launch=53057 passes=2 kerns=8 parkloops=0
+turn 106 turn=5151163 up=954698 run=2701020 down=1495275 pass=2700781 hdrup=225210 hdrdn=244087 wait=2148317 launch=82319 passes=2 kerns=8 parkloops=0
+turn 107 turn=4546765 up=822279 run=2523908 down=1200419 pass=2523728 hdrup=155926 hdrdn=207499 wait=2127549 launch=32189 passes=2 kerns=8 parkloops=0
+turn 108 turn=4431969 up=779577 run=2480349 down=1171953 pass=2480161 hdrup=131683 hdrdn=147114 wait=2168807 launch=32002 passes=2 kerns=8 parkloops=0
+turn 109 turn=4911794 up=795467 run=2797766 down=1318362 pass=2797259 hdrup=244786 hdrdn=253617 wait=2240492 launch=57838 passes=2 kerns=8 parkloops=0
+turn 110 turn=4457816 up=725544 run=2548719 down=1183434 pass=2548390 hdrup=163741 hdrdn=193869 wait=2159120 launch=31052 passes=2 kerns=8 parkloops=0
+turn 111 turn=5121164 up=896195 run=2741652 down=1483138 pass=2741423 hdrup=210665 hdrdn=248469 wait=2250996 launch=30606 passes=2 kerns=8 parkloops=0
+turn 112 turn=5246095 up=940143 run=2740587 down=1565197 pass=2740348 hdrup=211232 hdrdn=249256 wait=2204182 launch=74913 passes=2 kerns=8 parkloops=0
+turn 113 turn=4748998 up=961638 run=2545045 down=1242116 pass=2544758 hdrup=154244 hdrdn=187099 wait=2153266 launch=49384 passes=2 kerns=8 parkloops=0
+turn 114 turn=4976916 up=950745 run=2658118 down=1367913 pass=2657989 hdrup=207270 hdrdn=240365 wait=2134448 launch=75209 passes=2 kerns=8 parkloops=0
+turn 115 turn=5101052 up=977438 run=2708816 down=1414668 pass=2708577 hdrup=219565 hdrdn=238950 wait=2164834 launch=84460 passes=2 kerns=8 parkloops=0
+turn 116 turn=4688353 up=859983 run=2593611 down=1234629 pass=2593461 hdrup=159291 hdrdn=230588 wait=2170110 launch=32818 passes=2 kerns=8 parkloops=0
+turn 117 turn=4740517 up=771891 run=2527961 down=1440555 pass=2527633 hdrup=153059 hdrdn=218073 wait=2124622 launch=31143 passes=2 kerns=8 parkloops=0
+turn 118 turn=4649195 up=930932 run=2593314 down=1124741 pass=2593054 hdrup=136243 hdrdn=170033 wait=2237296 launch=48846 passes=2 kerns=8 parkloops=0
+turn 119 turn=4678766 up=827716 run=2595513 down=1255397 pass=2595354 hdrup=165135 hdrdn=190902 wait=2180308 launch=58266 passes=2 kerns=8 parkloops=0
