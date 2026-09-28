@@ -50,10 +50,41 @@ What the kernel is bound by (bench, rA = the M4 renderer):
 The primary ray's length sets the time; shading and the shadow ray (tier 3) add 0.4 ms. The lanes
 (8192, one ray at a time each) wait on their voxel reads: the kernel is latency bound.
 
-| # | Idea | Bottleneck | Expected | Measured | Verdict |
+| # | Idea | Bottleneck | Expected | Measured | Verdict | Commit |
+|-|-|-|-|-|-|-|
+| 6 | Empty-space skipping: an occupancy word per 4x4 group of columns (a bit per 4-high slab), kept by `W.set`; a ray in an empty 4x4x4 group jumps to the cell past it, in exactly the state the one-cell walk reaches (per-axis event counts, x before y before z at equal t), so frames are identical | steps per ray (35 on average at c1 320x180, tier 0) | -30 to -45% of the render | steps per ray 35 -> 22; c1 320x180 23.6 -> 20.1 ms (-15%); GPU 720p **slower**: 10.4 -> 11.8 ms (branching), 9.5 -> 11.6 ms (branch-free, 5 rounds) | rejected for the GPU. On the CPU it is a real gain; parked in `scratch/skip/` for the CPU ladder (see there) | - |
+| 7 | Tile-shaped leaves (the fork tree halves the longer side of a rectangle) so a wave's lanes trace nearby rays | SIMT divergence: a wave's lanes each run a different leaf, and the wave's loop runs as long as its longest ray | -10 to -25% | 10.40 -> 9.63 ms median-of-medians, p95 unchanged; inside the noise | superseded by 9 | - |
+| 8 | Read the next cell's word even when the ray stops there (Bend masks the index), so the read's address never waits on the last read's value | the chain read -> stop -> next read | -10 to -30% on the GPU | with 7: 9.4-9.7 vs 9.3-11.8, inside the noise alone; see 10 for its effect | kept (with 9) | f01f7f9 |
+| 9 | Strided leaves: leaf i of 2^d takes samples i, i + 2^d, ...: every leaf gets rays from the whole frame (load balance), and neighbour leaves (neighbour lanes) trace neighbour samples side by side (coherence) | lane imbalance and divergence | -10 to -20% | GPU 720p, 5 rounds vs rA: median 10.07 -> 9.38 (-7%), **p95 14.5-15.1 -> 12.7-13.0 (-2 ms)**; paced window, 3 rounds: render p95 12.6-12.85 -> 12.3-12.4, busy p95 16.80-16.96 -> 16.45-16.73; CPU c1 320x180 +3% (24.0 -> 24.7), c16 720p equal (72.7 vs 73.2) | **kept** | f01f7f9 |
+| 10 | Drop the hit bookkeeping (hx, hy, hz, ht, hf): a solid cell freezes the ray, so the last state is the hit | registers and moves per step | -5 to -10% | CPU equal; GPU slower in 5 of 5 rounds (e.g. 7.61 -> 9.65, 10.09 -> 11.14): freezing makes the next read's address wait on this read's value (the chain 8 removed), which also confirms 8 matters | rejected | - |
+| 11 | Read one cell ahead: the next word's read issues before this cell's shading decision (`scratch/render.rL.bend`) | the chain read -> decide -> read | -10% | 6 rounds vs rS: 9.4-9.8 vs 9.2-10.9 median, p95 13.4-14.2 vs 12.1-13.6: p95 worse in 5 of 6 | rejected | - |
+| 12 | Hoist the shared array's location out of the ray loop (`tools/loc_patch.py`: `blk_loc` once per leaf in our emitted C, not once per read) | every read of `w` goes through `blk_loc`, whose load of the refcount cell ends in `s_waitcnt vmcnt(0)`: the in-order counter makes each voxel read wait for every earlier load, so a lane never has two reads in flight | -10 to -20% | 6 rounds vs rS: median equal (9.0-10.5 vs 8.3-10.6), **p95 11.6-12.0 vs 12.0-13.2 (-1 ms)** | **needs an upstream change** (the compiler's redirect read; upstream draft #999 and our #1084 do this hoist). Not shipped: the game must not depend on a patched C | c56fe00 (the harness tool) |
+| 13 | Two cells a step (the DDA advances twice per loop iteration, so two independent reads per iteration) | the same read chain | -10% | alone: equal (9.0-10.0 vs 8.7-10.3 median, p95 12.2-12.9 vs 12.0-13.4); **with 12**: p95 10.2-10.8 vs rS 12.1-12.9 and rP 11.7-12.0, median equal | rejected alone; worth it only with 12 (upstream) | - |
+| 14 | Direct tiles: leaves of 2^TL x 2^TL samples that build the window Image themselves (`BR_IMG=2`), no framebuffer, no conversion pass | the conversion pass | -2 ms | TL 2: 19.7 ms vs 7.6 (the bench at 64 x 36 tile leaves), TL 3 no better: the leaves allocate Image nodes, and allocation on the GPU is dear | rejected | - |
+| 15 | **Blit.frame** (`blit.c`, `PLAY_MODE=2`, now the default): bend-craft's own foreign effect copies the flat framebuffer straight into the window's XImage (both 0x00RRGGBB): one device-to-host copy on the GPU lane (a `gpu_sync` only when a host write dirtied the framebuffer's chunks), a memcpy on the CPU, a nearest upscale when rendering below the window. No Image quadtree, no conversion pass, no `window_fill` walk | the show stage: conversion (inside the render bang) + `window_fill` (2.1 ms at 720p) + the twin's full `gpu_sync` | -2 to -3 ms busy | paced window 720p, 5 rounds interleaved vs mode 1: **busy p95 14.94-15.31 vs 16.52-16.76 (-1.4 ms, 5 of 5)**, busy med 13.2-13.6 vs 14.0-14.4, fill 1.62 vs 2.1; offscreen 720p frame 13.1 / p95 14.2 vs 13.1 / 15.7; CPU c16 720p show 0.3 ms vs 12.8. Pixels identical to mode 1 on c1, c16, main and gpu (P6 of the window, N = 1, 2, 3, 17 and 900) | **kept** | 85632ae |
+
+### Rung 720p paced: unlocked (GPU, native 1280x720, default tier 3 / vd 48)
+
+`bench/abp.sh 5 "PLAY_MODE=1@build/play2_l0 PLAY_MODE=2@build/play2_l0" DISPLAY_ON=1 PLAY_HW=1`,
+real WSLg window, 900 frames of the scripted walk each:
+
+| mode 2 (default), round | present p95 | present p99 | busy p95 | busy p99 | missed (> 25 ms) |
 |-|-|-|-|-|-|
-| 6 | Empty-space skipping: an occupancy word per 4x4 group of columns (a bit per 4-high slab), kept by `W.set`; a ray in an empty 4x4x4 group jumps to the cell past it, in exactly the state the one-cell walk reaches (per-axis event counts, x before y before z at equal t), so frames are identical | steps per ray (35 on average at c1 320x180, tier 0) | -30 to -45% of the render | steps per ray 35 -> 22; c1 320x180 23.6 -> 20.1 ms (-15%); GPU 720p **slower**: 10.4 -> 11.8 ms (branching), 9.5 -> 11.6 ms (branch-free, 5 rounds) | rejected for the GPU. On the CPU it is a real gain; parked in `scratch/skip/` for the CPU ladder (see there) |
-| 7 | Tile-shaped leaves (the fork tree halves the longer side of a rectangle) so a wave's lanes trace nearby rays | SIMT divergence: a wave's lanes each run a different leaf, and the wave's loop runs as long as its longest ray | -10 to -25% | 10.40 -> 9.63 ms median-of-medians, p95 unchanged; inside the noise | superseded by 9 |
-| 8 | Read the next cell's word even when the ray stops there (Bend masks the index), so the read's address never waits on the last read's value | the chain read -> stop -> next read | -10 to -30% on the GPU | with 7: 9.4-9.7 vs 9.3-11.8, inside the noise alone; see 10 for its effect | kept (with 9) |
-| 9 | Strided leaves: leaf i of 2^d takes samples i, i + 2^d, ...: every leaf gets rays from the whole frame (load balance), and neighbour leaves (neighbour lanes) trace neighbour samples side by side (coherence) | lane imbalance and divergence | -10 to -20% | GPU 720p, 5 rounds vs rA: median 10.07 -> 9.38 (-7%), **p95 14.5-15.1 -> 12.7-13.0 (-2 ms)**; paced window, 3 rounds: render p95 12.6-12.85 -> 12.3-12.4, busy p95 16.80-16.96 -> 16.45-16.73; CPU c1 320x180 +3% (24.0 -> 24.7), c16 720p equal (72.7 vs 73.2) | **kept** |
-| 10 | Drop the hit bookkeeping (hx, hy, hz, ht, hf): a solid cell freezes the ray, so the last state is the hit | registers and moves per step | -5 to -10% | CPU equal; GPU slower in 5 of 5 rounds (e.g. 7.61 -> 9.65, 10.09 -> 11.14): freezing makes the next read's address wait on this read's value (the chain 8 removed), which also confirms 8 matters | rejected |
+| 1 | 16.686 | 16.699 | 14.94 | 15.51 | 0 of 896 |
+| 2 | 16.684 | 16.707 | 15.31 | 16.03 | 0 |
+| 3 | 16.683 | 16.706 | 15.14 | 15.66 | 0 |
+| 4 | 16.690 | 16.795 | 15.20 | 16.71 | 1 |
+| 5 | 16.685 | 16.722 | 15.21 | 15.60 | 0 |
+
+Mode 1 in the same rounds: present p95 16.745-16.789, p99 17.25-17.87, busy p95 16.52-16.76. Frame
+900 is byte-identical on the GPU and on c16 (`media/gpu-720p-paced.png`). Metric caveat: the
+present interval is the pace's nanosleep wake-to-wake, whose jitter alone is ~0.02 ms; mode 1 missed
+p95 by 0.05-0.09 ms with 0 missed frames, so busy p95 (1.4-1.7 ms of headroom in mode 2) is the
+robust number. Play's own `loop` (Bend's clock, iteration to iteration) reads p95 17.1-17.2: it
+also counts the effect's return into Bend, which is not on the display's cadence.
+
+## GPU ladder, rung 1080p native (1 round at the start)
+
+Mode 2, paced, real window: render 11.7 med / 13.1 p95 (GPU wait 9.6, up 0.77, down 0.94), fill
+2.2 / 2.8, busy med 16.7 / p95 18.6 / p99 21.1, present p95 18.6. Bottleneck: the render kernel
+(the voxel read chain, 12 and 13 above) plus the fixed turn cost (up + down 1.7 ms).

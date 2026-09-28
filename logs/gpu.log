@@ -386,3 +386,14 @@
 2026-09-28 01:09:24 shot-g2 rc=0 ms=563 load=1.76 drv=0 | PLAY_W=320 PLAY_H=180 PLAY_DEMO=1 PLAY_N=17 PLAY_MODE=2 PLAY_SHOT=/tmp/claude-1000/-home-costamatheus97-vt-brainstorm-ai-bend2-hip/da5577c9-5150-4697-88b6-9b24e8da3ac3/scratchpad/s_g2.ppm build/play2_l0 --threads 16 --gpu 3GB
 2026-09-28 01:09:59 play2-build rc=0 ms=37688 load=1.50 drv=0 | build/play2_l0 --gpu-build
 2026-09-28 01:10:37 shot-gdef rc=0 ms=554 load=2.23 drv=0 | PLAY_W=320 PLAY_H=180 PLAY_DEMO=1 PLAY_N=17 PLAY_SHOT=/tmp/claude-1000/-home-costamatheus97-vt-brainstorm-ai-bend2-hip/da5577c9-5150-4697-88b6-9b24e8da3ac3/scratchpad/s_gdef.ppm PLAY_HW=1 build/play2_l0 --threads 16 --gpu 3GB
+2026-09-28 01:10:48 abp-play2_l0 rc=0 ms=15401 load=1.89 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_LOG=1 BEND_GPROF=1 DISPLAY_ON=1 PLAY_HW=1 PLAY_MODE=1 build/play2_l0 --threads 16 --gpu 3GB
+2026-09-28 01:11:04 abp-play2_l0 rc=0 ms=15331 load=2.28 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_LOG=1 BEND_GPROF=1 DISPLAY_ON=1 PLAY_HW=1 PLAY_MODE=2 build/play2_l0 --threads 16 --gpu 3GB
+2026-09-28 01:11:20 abp-play2_l0 rc=0 ms=15416 load=2.51 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_LOG=1 BEND_GPROF=1 DISPLAY_ON=1 PLAY_HW=1 PLAY_MODE=1 build/play2_l0 --threads 16 --gpu 3GB
+2026-09-28 01:11:36 abp-play2_l0 rc=0 ms=15332 load=2.41 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_LOG=1 BEND_GPROF=1 DISPLAY_ON=1 PLAY_HW=1 PLAY_MODE=2 build/play2_l0 --threads 16 --gpu 3GB
+2026-09-28 01:11:52 abp-play2_l0 rc=0 ms=15417 load=2.60 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_LOG=1 BEND_GPROF=1 DISPLAY_ON=1 PLAY_HW=1 PLAY_MODE=1 build/play2_l0 --threads 16 --gpu 3GB
+2026-09-28 01:12:08 abp-play2_l0 rc=0 ms=15331 load=2.54 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_LOG=1 BEND_GPROF=1 DISPLAY_ON=1 PLAY_HW=1 PLAY_MODE=2 build/play2_l0 --threads 16 --gpu 3GB
+2026-09-28 01:12:23 abp-play2_l0 rc=0 ms=15406 load=2.72 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_LOG=1 BEND_GPROF=1 DISPLAY_ON=1 PLAY_HW=1 PLAY_MODE=1 build/play2_l0 --threads 16 --gpu 3GB
+2026-09-28 01:12:39 abp-play2_l0 rc=0 ms=15376 load=2.93 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_LOG=1 BEND_GPROF=1 DISPLAY_ON=1 PLAY_HW=1 PLAY_MODE=2 build/play2_l0 --threads 16 --gpu 3GB
+2026-09-28 01:12:55 abp-play2_l0 rc=0 ms=15428 load=3.32 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_LOG=1 BEND_GPROF=1 DISPLAY_ON=1 PLAY_HW=1 PLAY_MODE=1 build/play2_l0 --threads 16 --gpu 3GB
+2026-09-28 01:13:11 abp-play2_l0 rc=0 ms=15340 load=3.31 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_LOG=1 BEND_GPROF=1 DISPLAY_ON=1 PLAY_HW=1 PLAY_MODE=2 build/play2_l0 --threads 16 --gpu 3GB
+2026-09-28 01:13:42 shot720 rc=0 ms=15334 load=2.63 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_HW=1 PLAY_SHOT=/tmp/claude-1000/-home-costamatheus97-vt-brainstorm-ai-bend2-hip/da5577c9-5150-4697-88b6-9b24e8da3ac3/scratchpad/w720.ppm build/play2_l0 --threads 16 --gpu 3GB
