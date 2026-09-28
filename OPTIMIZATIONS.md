@@ -114,6 +114,8 @@ writes 14.7 MB down the X socket), busy med 18.9 / p95 24.4, 23-36 frames missed
 | 18 | Page-lock the copy's host target (`cuMemHostRegister` on the shared image and on the upscale's staging buffer; `PLAY_PIN=0` turns it off) so the device-to-host copy is direct, not through a pageable bounce | the copy down (1.6 ms for 3.7 MB) | copy -1 ms at 720p | 3 rounds (same binary, `PLAY_PIN` 0 vs 1): fill 1.59-1.65 -> 0.48 (720p), 3.4-3.6 -> 1.8 (1440p up2); busy p95 13.6-13.7 -> 12.6-12.7 (720p), 17.8-17.9 -> 15.9-16.5 (1440p up2) | **kept** | 50572df |
 | 19 | Two shared images, each reused on its ShmCompletion event: a frame fills the image the server is done with (`PLAY_SHM=1`: one image and an XSync) | the XSync of 16 (the server still reading the last frame): pump 1.5 ms p95, 2.1 p99 at 1440p up2 | busy p99 -1.5 ms at 1440p up2 | 3 rounds: pump p95 1.26-1.57 -> 0.03-0.05; busy p95 16.0-16.4 -> 15.2-15.4, **p99 17.1-17.7 -> 16.06-16.29** (1440p up2); 720p unchanged. Live-window capture `media/window-capture-1440p-up2-shm2.png` | **kept** | edf0d0a |
 
+| 20 | The upscale in bands on 4 threads when the window has 2 Mpixel or more (`PLAY_BLIT_T`) | the upscale at 3840x2160 up4: 33 MB of stores a frame, fill 6.1 ms | fill -3 ms at 4K | 3 rounds interleaved at 4K up4: fill 6.05-6.18 -> 3.64-3.71, busy p95 17.6-18.0 -> 14.8-15.2, p99 18.6-19.0 -> 15.8-16.4; 8 threads no faster (3.73-3.86: store bandwidth). Same pixels as mode 1 (odd sizes, u 1-3) | **kept** | c007ab0 |
+
 ### Rungs unlocked (shipping build, rule above)
 
 | Rung | Samples | Rounds | busy p95 | busy p99 | missed / round | present p95 | Screenshot |
@@ -122,11 +124,11 @@ writes 14.7 MB down the X socket), busy med 18.9 / p95 24.4, 23-36 frames missed
 | 1080p up2 | 960x540 | 4 (after 15) + 1 (after 19) | 14.76-15.51 -> 10.33 | 15.52-16.56 -> 10.64 | 0 | 16.688-16.711 | `media/gpu-1080p-up2-paced.png` |
 | **1080p native** | 1920x1080 | 5 (after 19) | 14.61-14.89 | 15.27-15.86 | 0-1 | 16.682-16.695 | `media/gpu-1080p-paced.png` |
 | **1440p up2** | 1280x720 | 4 (after 19) | 15.22-15.37 | 16.06-16.31 | 0-1 | 16.685-16.693 | `media/gpu-1440p-up2-paced.png` |
+| **4K up4** | 960x540 | 4 (after 20) | 14.79-15.16 | 15.75-16.35 | 0-1 | 16.697-16.722 | `media/gpu-4k-up4-paced.png` |
 
-Frame 900 of the walk is byte-identical on the GPU and on c16 at 1080p up2, 1080p native and
-1440p up2. The 1440p-up2 margin at p99 is 0.4-0.6 ms: the thinnest of the four.
+Frame 900 of the walk is byte-identical on the GPU and on c16 at 1080p up2, 1080p native,
+1440p up2 and 4K up4. The 1440p-up2 margin at p99 is 0.4-0.6 ms: the thinnest of the four.
 
 Not unlocked (1 round each, after 19): 1440p native (not run yet: 2560x1440 samples, render
 alone is over the budget at 1080p's 12.9 ms busy scaled by 1.8x), 4K up2 (1920x1080 samples:
-busy p95 22.0, fill 6.1), 4K up4 (960x540 samples: busy p95 17.3, p99 18.3, fill 6.0 of which
-the upscale into 33 MB is most).
+busy p95 22.0, fill 6.1 before 20); 4K up4 unlocked with 20.
