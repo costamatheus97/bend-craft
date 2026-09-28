@@ -142,7 +142,7 @@ static void bc_pump(BendWin* win) {
 // ------
 
 #define BC_MAX 100000
-static u64 bc_fill_ns[BC_MAX], bc_frame_ns[BC_MAX], bc_pres_ns[BC_MAX], bc_busy_ns[BC_MAX], bc_put_ns[BC_MAX];
+static u64 bc_fill_ns[BC_MAX], bc_frame_ns[BC_MAX], bc_pres_ns[BC_MAX], bc_busy_ns[BC_MAX], bc_put_ns[BC_MAX], bc_pump_ns[BC_MAX];
 static u32 bc_nput, bc_nf, bc_nt, bc_np, bc_w, bc_h, bc_miss;
 static u64 bc_last, bc_wake, bc_call;
 static int bc_hw = -1;
@@ -180,8 +180,9 @@ static void bc_report(void) {
       bc_q(bc_pres_ns, bc_np, s, 0.5), bc_q(bc_pres_ns, bc_np, s, 0.95), bc_q(bc_pres_ns, bc_np, s, 0.99),
       bc_q(bc_pres_ns, bc_np, s, 1.0), bc_q(bc_busy_ns, bc_np, s, 0.5), bc_q(bc_busy_ns, bc_np, s, 0.95),
       bc_q(bc_busy_ns, bc_np, s, 0.99), bc_miss, bc_np > s ? bc_np - s : 0);
-    fprintf(stderr, "HW put_ms med %.3f p95 %.3f p99 %.3f\n", bc_q(bc_put_ns, bc_nput, s, 0.5),
-      bc_q(bc_put_ns, bc_nput, s, 0.95), bc_q(bc_put_ns, bc_nput, s, 0.99));
+    fprintf(stderr, "HW put_ms med %.3f p95 %.3f p99 %.3f | pump_ms med %.3f p95 %.3f p99 %.3f\n",
+      bc_q(bc_put_ns, bc_nput, s, 0.5), bc_q(bc_put_ns, bc_nput, s, 0.95), bc_q(bc_put_ns, bc_nput, s, 0.99),
+      bc_q(bc_pump_ns, bc_nf, s, 0.5), bc_q(bc_pump_ns, bc_nf, s, 0.95), bc_q(bc_pump_ns, bc_nf, s, 0.99));
   }
   fflush(stderr);
 }
@@ -191,15 +192,31 @@ static void bc_report(void) {
 
 // The samples into pix (w x h pixels): sample (x >> u, y >> u) at each pixel.
 static void bc_scale(u32* pix, u32 w, u32 h, const u32* src, u32 ws, u32 u) {
-  for (u32 y = 0; y < h; y += 1) {
+  if (u == 0) {
+    for (u32 y = 0; y < h; y += 1) {
+      memcpy(pix + (u64)y * w, src + (u64)y * ws, (size_t)w * 4);
+    }
+    return;
+  }
+  // Each sample row is widened once, then its copies are memcpys of the widened row.
+  for (u32 y = 0; y < h; y += 1u << u) {
     const u32* row = src + (u64)(y >> u) * ws;
     u32*       out = pix + (u64)y * w;
-    if (u == 0) {
-      memcpy(out, row, (size_t)w * 4);
+    if (u == 1) {
+      u64* o2 = (u64*)out;
+      for (u32 x = 0; x < w / 2; x += 1) {
+        o2[x] = (u64)row[x] * 0x100000001ull;
+      }
+      if (w & 1) {
+        out[w - 1] = row[(w - 1) >> 1];
+      }
     } else {
       for (u32 x = 0; x < w; x += 1) {
         out[x] = row[x >> u];
       }
+    }
+    for (u32 k = 1; k < (1u << u) && y + k < h; k += 1) {
+      memcpy(out + (u64)k * w, out, (size_t)w * 4);
     }
   }
 }
@@ -222,7 +239,31 @@ static bool bc_dirty(u64 lo, u64 hi) {
 }
 #endif
 
-static void bc_fill(Env e, u32* pix, u32 w, u32 h, Term fb, u32 ws, u32 hs, u32 u) {
+#if BEND_CUDA
+// Page-locks a host buffer the device copies into (the shared-memory image, or the upscale's
+// staging buffer), so cuMemcpyDtoH writes it directly rather than through a pageable bounce.
+// Only buffers blit.c owns and never frees; a refusal (or PLAY_PIN=0) leaves it pageable.
+static bool bc_pin(void* p, size_t n) {
+  static void* done[4];
+  static int   nd = -1;
+  if (nd < 0) {
+    const char* v = getenv("PLAY_PIN");
+    nd = v != NULL && v[0] == '0' ? 4 : 0;
+  }
+  for (int i = 0; i < 4; i += 1) {
+    if (done[i] == p) {
+      return true;
+    }
+  }
+  if (nd >= 4 || cuMemHostRegister(p, n, 0) != CUDA_SUCCESS) {
+    return false;
+  }
+  done[nd++] = p;
+  return true;
+}
+#endif
+
+static void bc_fill(Env e, u32* pix, u32 w, u32 h, Term fb, u32 ws, u32 hs, u32 u, bool own) {
   u64 loc = blk_loc(e.mem, fb);
 #if BEND_CUDA
   if (io_gpu && gpu_twin) {
@@ -231,6 +272,9 @@ static void bc_fill(Env e, u32* pix, u32 w, u32 h, Term fb, u32 ws, u32 hs, u32 
     }
     CUdeviceptr src = (CUdeviceptr)(gpu_vram + loc);
     if (u == 0 && ws == w) {
+      if (own) {
+        bc_pin(pix, (size_t)w * h * 4);
+      }
       if (cuMemcpyDtoH(pix, src, (size_t)w * h * 4) != CUDA_SUCCESS) {
         err_fail("Blit.frame: the device copy failed");
       }
@@ -239,9 +283,10 @@ static void bc_fill(Env e, u32* pix, u32 w, u32 h, Term fb, u32 ws, u32 hs, u32 
     static u32* tmp;
     static u64  cap;
     u64 n = (u64)ws * hs;
-    if (n > cap) {
-      tmp = io_mem(realloc(tmp, n * 4));
+    if (n > cap) {   // grows once in practice: the size is the window's; the old one stays pinned
+      tmp = io_mem(aligned_alloc(4096, (n * 4 + 4095) / 4096 * 4096));
       cap = n;
+      bc_pin(tmp, (n * 4 + 4095) / 4096 * 4096);
     }
     if (cuMemcpyDtoH(tmp, src, n * 4) != CUDA_SUCCESS) {
       err_fail("Blit.frame: the device copy failed");
@@ -402,14 +447,18 @@ static Term bc_frame(Env e, BendWin* win, Term fb, u32 ws, u32 hs, u32 u) {
     }
     bc_pump(win);
   }
+  u64 t1 = io_tick();
   u32 w = win->img->width;
   u32 h = win->img->height;
   XImage* img = bc_shm == 1 && bc_simg->width == (int)w && bc_simg->height == (int)h ? bc_simg : win->img;
-  bc_fill(e, (u32*)img->data, w, h, fb, ws, hs, u);
+  bc_fill(e, (u32*)img->data, w, h, fb, ws, hs, u, img == bc_simg);
   if (bc_hw) {
     bc_w = w;
     bc_h = h;
-    if (bc_nf < BC_MAX) bc_fill_ns[bc_nf] = io_tick() - t0;
+    if (bc_nf < BC_MAX) {
+      bc_fill_ns[bc_nf] = io_tick() - t1;   // the copy (and upscale) only
+      bc_pump_ns[bc_nf] = t1 - t0;          // the wait for the last put, and the events
+    }
     bc_nf += 1;
   }
   if (win->dpy != NULL) {
