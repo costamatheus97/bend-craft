@@ -435,26 +435,35 @@ def skip.if(full: Bool, +x: U32, +y: U32, +z: U32, +t: U32, +f: U32, +tx: U32, +
     case False{}:
       skip(x, y, z, t, f, tx, ty, tz, sx, sy, sz, ddx, ddy, ddz, fX, fY, fZ)
 
-# What go.s reads for cell (x, y, z): its group's occupancy word (grp), or its own word.
+# What go.s reads for cell (x, y, z): its group's occupancy word (grp), or its own word. A
+# match, not Fx.sel: Fx.sel's arguments are both evaluated, so every step computed both indices.
 def ix(grp: Bool, +lc: Nat, +x: U32, +y: U32, +z: U32) -> U32:
-  Fx.sel(grp, W.occ.at(lc, x, z), W.word(lc, x, y, z))
+  match grp:
+    case True{}:
+      W.occ.at(lc, x, z)
+    case False{}:
+      W.word(lc, x, y, z)
 
-# go with the skip: grp says r holds the group's word of cell (x, y, z).
+# go with the skip: grp says r holds the group's word of cell (x, y, z). Unlike go, a solid
+# cell freezes the ray (x, y, z, t and f stay), so the state at the stop is the hit and no hit
+# fields ride along (hb: the hit's block, 0 for a stop out of the world or past tmax). On a
+# miss (hb = 0) f, t, x, y and z are the exit state's, and only hb and wt mean anything. nsd is
+# ~(side - 1), side a power of two: (x | z) & nsd or y & ~63 set means outside the world (U32
+# wrap included).
 def go.s(
   n: Nat, stop: Bool, grp: Bool, +x: U32, +y: U32, +z: U32, +tx: U32, +ty: U32, +tz: U32, +t: U32,
-  +f: U32, +wt: U32, +hb: U32, +hx: U32, +hy: U32, +hz: U32, +ht: U32, +hf: U32, +sx: U32, +sy: U32,
-  +sz: U32, +ddx: U32, +ddy: U32, +ddz: U32, +fX: U32, +fY: U32, +fZ: U32, +tmax: U32, +side: U32,
-  +lc: Nat, r: Array<U32> & U32
+  +f: U32, +wt: U32, +hb: U32, +sx: U32, +sy: U32, +sz: U32, +ddx: U32, +ddy: U32, +ddz: U32,
+  +fX: U32, +fY: U32, +fZ: U32, +tmax: U32, +nsd: U32, +lc: Nat, r: Array<U32> & U32
 ) -> Array<U32> & Hit:
   match n:
     case 0n:
       (w, +wd) = r
-      (w, Hit{hb, hf, ht, hx, hy, hz, wt})
+      (w, Hit{hb, f, t, x, y, z, wt})
     case 1n+k:
       match stop:
         case True{}:
           (w, +wd) = r
-          (w, Hit{hb, hf, ht, hx, hy, hz, wt})
+          (w, Hit{hb, f, t, x, y, z, wt})
         case False{}:
           match grp:
             case True{}:
@@ -466,27 +475,31 @@ def go.s(
               +y2 = sk.y(s)
               +z2 = sk.z(s)
               +t2 = sk.t(s)
-              +st = g2 && ((x2 >= side) || (y2 >= 64) || (z2 >= side) || (t2 > tmax) : U32)
-              go.s(k, st, g2, x2, y2, z2, sk.tx(s), sk.ty(s), sk.tz(s), t2, sk.f(s), wt, 0, x, y, z, t, f,
-                sx, sy, sz, ddx, ddy, ddz, fX, fY, fZ, tmax, side, lc, w[ix(g2, lc, x2, y2, z2)])
+              +out2 = U32.is_ne(U32.or(U32.and(U32.or(x2, z2), nsd), U32.and(y2, 4294967232)), 0)
+              +st = g2 && (out2 || (t2 > tmax : U32))
+              go.s(k, st, g2, x2, y2, z2, sk.tx(s), sk.ty(s), sk.tz(s), t2, sk.f(s), wt, 0, sx, sy, sz, ddx,
+                ddy, ddz, fX, fY, fZ, tmax, nsd, lc, w[ix(g2, lc, x2, y2, z2)])
             case False{}:
               (w, +wd) = r
               +b = W.byte(wd, y)
               +wet = U32.is_eq(b, 5)
               +solid = U32.is_ne(b, 0) && Bool.not(wet)
+              +mv = Bool.not(solid)
               +tm = Fx.sel((tx < ty : U32), Fx.sel((tx < tz : U32), tx, tz), Fx.sel((ty < tz : U32), ty, tz))
               +ax = U32.is_eq(tx, tm)
               +ay = Bool.not(ax) && U32.is_eq(ty, tm)
               +az = Bool.not(ax) && Bool.not(ay)
-              +xn = (x + Fx.sel(ax, sx, 0) : U32)
-              +yn = (y + Fx.sel(ay, sy, 0) : U32)
-              +zn = (z + Fx.sel(az, sz, 0) : U32)
-              +st = solid || ((xn >= side) || (yn >= 64) || (zn >= side) || (tm > tmax) : U32)
+              +xn = (x + Fx.sel(ax && mv, sx, 0) : U32)
+              +yn = (y + Fx.sel(ay && mv, sy, 0) : U32)
+              +zn = (z + Fx.sel(az && mv, sz, 0) : U32)
+              +outn = U32.is_ne(U32.or(U32.and(U32.or(xn, zn), nsd), U32.and(yn, 4294967232)), 0)
+              +st = solid || outn || (tm > tmax : U32)
               +cr = U32.is_ne(U32.shrn(U32.or(U32.or(U32.xor(xn, x), U32.xor(yn, y)), U32.xor(zn, z)), 2n), 0)
               go.s(k, st, cr, xn, yn, zn, (tx + Fx.sel(ax, ddx, 0) : U32), (ty + Fx.sel(ay, ddy, 0) : U32),
-                (tz + Fx.sel(az, ddz, 0) : U32), tm, Fx.sel(ax, fX, Fx.sel(ay, fY, fZ)),
-                Fx.sel(wet && U32.is_eq(wt, none()), t, wt), Fx.sel(solid, b, 0), x, y, z, t, f, sx, sy,
-                sz, ddx, ddy, ddz, fX, fY, fZ, tmax, side, lc, w[ix(cr, lc, xn, yn, zn)])
+                (tz + Fx.sel(az, ddz, 0) : U32), Fx.sel(solid, t, tm),
+                Fx.sel(solid, f, Fx.sel(ax, fX, Fx.sel(ay, fY, fZ))),
+                Fx.sel(wet && U32.is_eq(wt, none()), t, wt), Fx.sel(solid, b, 0), sx, sy, sz, ddx, ddy, ddz,
+                fX, fY, fZ, tmax, nsd, lc, w[ix(cr, lc, xn, yn, zn)])
 
 # t per cell along an axis of |d| = ad (2^27, beyond any view, when ad is tiny).
 def ddt(+ad: U32) -> U32:
@@ -509,9 +522,9 @@ def cast.go(skp: Bool, w: Array<U32>, +x: U32, +y: U32, +z: U32, +out: Bool, +ox
   match skp:
     case True{}:
       go.s(U32.to_nat((vd * 6 + 6 : U32)), out, True{}, x, y, z, tmx(ox, dx, ddx), tmx(oy, dy, ddy),
-        tmx(oz, dz, ddz), 0, 2, none(), 0, x, y, z, 0, 2, step(dx), step(dy), step(dz), ddx, ddy, ddz,
-        Fx.sel(Fx.isneg(dx), 0, 1), Fx.sel(Fx.isneg(dy), 2, 3), Fx.sel(Fx.isneg(dz), 4, 5), tmax, side,
-        lc, w[W.occ.at(lc, x, z)])
+        tmx(oz, dz, ddz), 0, 2, none(), 0, step(dx), step(dy), step(dz), ddx, ddy, ddz,
+        Fx.sel(Fx.isneg(dx), 0, 1), Fx.sel(Fx.isneg(dy), 2, 3), Fx.sel(Fx.isneg(dz), 4, 5), tmax,
+        (0 - side : U32), lc, w[W.occ.at(lc, x, z)])
     case False{}:
       go(U32.to_nat((vd * 3 + 3 : U32)), out, x, y, z, tmx(ox, dx, ddx), tmx(oy, dy, ddy),
         tmx(oz, dz, ddz), 0, 2, none(), 0, x, y, z, 0, 2, step(dx), step(dy), step(dz), ddx, ddy, ddz,

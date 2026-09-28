@@ -1,0 +1,45 @@
+== r1 play_stock
+sim 0.00/0.00/0.00 | render 13.29/15.92/16.89 | show 3.37/6.45/7.24 | loop 16.66/16.69/17.01
+  HW frames=900 size=640x360 fill_ms med 0.061 p95 0.075 p99 0.093 | frame_ms med 16.697 p95 18.404 p99 19.296
+  HW present_ms med 16.667 p95 16.681 p99 16.938 max 18.491 | busy_ms med 13.379 p95 16.005 p99 16.936 | missed 0 of 896
+  HW put_ms med 0.030 p95 0.036 p99 0.050 | pump_ms med 0.010 p95 0.014 p99 0.020
+== r1 play_s132
+sim 0.00/0.00/0.00 | render 11.79/14.43/15.81 | show 4.86/6.92/7.90 | loop 16.66/16.70/16.74
+  HW frames=900 size=640x360 fill_ms med 0.061 p95 0.071 p99 0.089 | frame_ms med 16.679 p95 18.405 p99 19.330
+  HW present_ms med 16.667 p95 16.696 p99 16.745 max 17.580 | busy_ms med 11.879 p95 14.546 p99 15.932 | missed 0 of 896
+  HW put_ms med 0.031 p95 0.037 p99 0.054 | pump_ms med 0.010 p95 0.015 p99 0.022
+== r1 play_s132_g
+sim 0.00/0.00/0.00 | render 10.63/12.56/13.51 | show 6.02/8.61/8.99 | loop 16.66/16.68/16.69
+  HW frames=900 size=640x360 fill_ms med 0.060 p95 0.072 p99 0.086 | frame_ms med 16.667 p95 17.401 p99 17.836
+  HW present_ms med 16.667 p95 16.678 p99 16.689 max 16.750 | busy_ms med 10.747 p95 12.666 p99 13.604 | missed 0 of 896
+  HW put_ms med 0.031 p95 0.037 p99 0.043 | pump_ms med 0.009 p95 0.014 p99 0.022
+== r2 play_stock
+sim 0.00/0.00/0.00 | render 13.37/16.14/17.93 | show 3.30/6.46/7.28 | loop 16.66/16.75/18.05
+  HW frames=900 size=640x360 fill_ms med 0.061 p95 0.072 p99 0.096 | frame_ms med 16.677 p95 18.714 p99 19.869
+  HW present_ms med 16.667 p95 16.750 p99 17.985 max 20.262 | busy_ms med 13.462 p95 16.212 p99 17.982 | missed 0 of 896
+  HW put_ms med 0.031 p95 0.036 p99 0.043 | pump_ms med 0.010 p95 0.015 p99 0.023
+== r2 play_s132
+sim 0.00/0.00/0.00 | render 11.72/14.34/15.27 | show 4.93/7.13/8.02 | loop 16.66/16.68/16.76
+  HW frames=900 size=640x360 fill_ms med 0.064 p95 0.074 p99 0.099 | frame_ms med 16.679 p95 18.498 p99 19.500
+  HW present_ms med 16.667 p95 16.677 p99 16.728 max 16.852 | busy_ms med 11.807 p95 14.418 p99 15.328 | missed 0 of 896
+  HW put_ms med 0.030 p95 0.036 p99 0.047 | pump_ms med 0.010 p95 0.013 p99 0.018
+== r2 play_s132_g
+sim 0.00/0.00/0.00 | render 10.79/12.60/13.30 | show 5.87/8.70/9.04 | loop 16.66/16.68/16.74
+  HW frames=900 size=640x360 fill_ms med 0.060 p95 0.075 p99 0.110 | frame_ms med 16.656 p95 17.399 p99 17.825
+  HW present_ms med 16.667 p95 16.677 p99 16.703 max 20.115 | busy_ms med 10.901 p95 12.710 p99 13.371 | missed 0 of 896
+  HW put_ms med 0.031 p95 0.038 p99 0.054 | pump_ms med 0.009 p95 0.015 p99 0.020
+== r3 play_stock
+sim 0.00/0.00/0.00 | render 13.32/15.93/16.73 | show 3.35/6.42/7.14 | loop 16.66/16.70/16.87
+  HW frames=900 size=640x360 fill_ms med 0.059 p95 0.071 p99 0.090 | frame_ms med 16.699 p95 18.550 p99 19.343
+  HW present_ms med 16.667 p95 16.699 p99 16.862 max 18.991 | busy_ms med 13.402 p95 15.936 p99 16.860 | missed 0 of 896
+  HW put_ms med 0.030 p95 0.036 p99 0.049 | pump_ms med 0.010 p95 0.014 p99 0.018
+== r3 play_s132
+sim 0.00/0.00/0.00 | render 11.77/14.17/15.74 | show 4.90/6.97/7.88 | loop 16.66/16.69/16.75
+  HW frames=900 size=640x360 fill_ms med 0.062 p95 0.078 p99 0.104 | frame_ms med 16.664 p95 18.450 p99 19.555
+  HW present_ms med 16.667 p95 16.695 p99 16.714 max 17.248 | busy_ms med 11.857 p95 14.215 p99 15.857 | missed 0 of 896
+  HW put_ms med 0.031 p95 0.036 p99 0.041 | pump_ms med 0.010 p95 0.014 p99 0.020
+== r3 play_s132_g
+sim 0.00/0.00/0.00 | render 10.68/12.54/13.40 | show 5.98/8.61/8.98 | loop 16.66/16.68/16.71
+  HW frames=900 size=640x360 fill_ms med 0.060 p95 0.070 p99 0.085 | frame_ms med 16.664 p95 17.360 p99 17.644
+  HW present_ms med 16.667 p95 16.680 p99 16.702 max 16.915 | busy_ms med 10.790 p95 12.656 p99 13.460 | missed 0 of 896
+  HW put_ms med 0.032 p95 0.037 p99 0.052 | pump_ms med 0.009 p95 0.013 p99 0.016

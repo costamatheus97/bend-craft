@@ -235,7 +235,7 @@ CPU lane, Ryzen 7 5800XT, 16 threads (upstream main ef66a7cc, no GPU code):
 | Resolution | Samples | fps | 1% low | busy p95 (ms) |
 |-|-|-|-|-|
 | 320x180 | 320x180 | 218 | 179 | 5.2-5.4 |
-| 640x360 | 640x360 | 70 | 50 | 17.1-18.6 |
+| 640x360 | 640x360 | 84 | 63 | 14.2-14.5 |
 | 720p up4 | 320x180 | 211 | 170 | 5.5-5.6 |
 | 720p up2 | 640x360 | 67 | 44 | 18.3-19.5 |
 | 720p | 1280x720 | 19 | 15 | 60.7-61.5 |
@@ -249,11 +249,11 @@ CPU lane, Ryzen 7 5800XT, 16 threads (upstream main ef66a7cc, no GPU code):
 | 4K up2 | 1920x1080 | 9 | 8 | 124 |
 | 4K | 3840x2160 | 2 | 2 | 467 |
 
-640x360, and every rung with the same 640x360 samples, is close. Its p95 passes in some rounds,
-and its p99 is 0.5-3.5 ms over (17.2-20.2 across the sessions). A prototype of an upstream change to the CPU pool (the frontier grown
-to 8 units a worker, not 1, so a worker that lands on a shared core does not hold up the frame)
-takes about 20% off every CPU rung. With it, 640x360 passes in 3 of 5 rounds (p99 16.0-19.3); see
-`OPTIMIZATIONS.md` 31 and 35.
+The 640x360 row is from the rewritten ray walk (`OPTIMIZATIONS.md` 36, 3 rounds, busy p99
+15.3-15.9, 0 missed), which holds 60 fps there; the other rows were measured before it and would be
+about 10% faster now. A prototype of an upstream change to the CPU pool (the frontier grown to 8
+units a worker, not 1, so a worker that lands on a shared core does not hold up the frame) takes
+another 9-20% off (with both, 640x360's p99 is 13.4-13.6); see `OPTIMIZATIONS.md` 31, 35 and 36.
 
 `OPTIMIZATIONS.md` has every attempt and the rounds behind each number. The run log, with
 terrain and render sweeps, is `LOG.md`. Screenshots are in `media/`.
