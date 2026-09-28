@@ -50,3 +50,28 @@ Reading:
 - The window path (turn, conversion, fill, XPutImage) with a trivial pixel is ~7.8 ms of a real
   720p frame and ~14 ms at 1080p. 720p leaves ~9 ms for the render kernel and the sim; 1080p at
   60 fps needs an internal-resolution upscale (2x2 leaves).
+
+## 2026-09-27 23:00-23:10 M1: world and terrain
+
+- `world.bend`: 16 << lc by 64 by 16 << lc blocks, one byte a block, four per U32 packed along y,
+  columns of 16 words grouped in 16 x 16-column chunks (4096 words). Two passes per generation (a
+  height map, then the columns by gather); both are fork trees over the column index.
+- Name clash found: a module's defs are seen through its alias, so a def named `W.gen` inside
+  world.bend is `W.W.gen` to the importer, and `W.gen(~t, ..)` parsed as "expected a term" at `~`.
+- Tests (`run_tests.sh`): `tests/world.bend` (lc 2) passes check, js, c1, c16, main (upstream
+  main-229) and gpu; `tests/world_full.bend` (lc 4) passes c1, c16, main and gpu. The hashes are
+  the same at fork depths 0, 3, 8, 13 and 14, on every lane; the counting writer shows every word
+  written exactly once (count-bad 0) and every column index round-trips.
+
+Terrain generation, lc 4 (65536 columns, 4 MiB), ms, median of 7 (CPU) / 10 (GPU):
+
+| lane | d=0 | 2 | 4 | 6 | 8 | 10 | 12 | 13 | 14 |
+|-|-|-|-|-|-|-|-|-|-|
+| CPU 1 thread | 10.5 | 11.2 | 11.0 | 11.3 | 11.2 | 11.8 | - | 11.5 | - |
+| CPU 16 threads | 10.3 | 7.6 | 4.3 | 4.2 | 4.1 | 4.3 | - | 5.4 | - |
+| GPU turn (wait) | - | - | - | - | 7.6 (5.1) | 4.9 (1.9) | 4.2 (1.3) | 4.4 (1.2) | 4.2 (1.2) |
+
+- One CPU thread does ~6 M columns/s. 16 threads buy 2.5x: the fork tree's ~3 ms is most of it.
+- The GPU turn is 4.2 ms of which the kernel is 1.2 ms; the rest is the up (1.4 ms, the fresh
+  world) and down (1.1 ms). At this size the lanes tie; terrain runs once, so it is not a frame cost.
+- GPU d 8 leaves lanes idle (256 leaves of 256 columns: 5.1 ms of kernel); d 12-14 fill them.
