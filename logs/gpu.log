@@ -727,3 +727,15 @@
 2026-09-28 04:20:34 test-world rc=0 ms=351 load=3.18 drv=0 | /tmp/tmp.gbwrU09Mu5/world.g --threads 16 --gpu 3GB
 2026-09-28 04:20:40 test-world_full-build rc=0 ms=104 load=3.25 drv=0 | /tmp/tmp.gbwrU09Mu5/world_full.g --gpu-build
 2026-09-28 04:20:40 test-world_full rc=0 ms=736 load=3.07 drv=0 | /tmp/tmp.gbwrU09Mu5/world_full.g --threads 16 --gpu 3GB
+2026-09-28 07:53:32 test-game-build rc=0 ms=1686 load=0.96 drv=0 | /tmp/tmp.6V4nD9mrpJ/game.g --gpu-build
+2026-09-28 07:53:35 test-game rc=0 ms=376 load=0.96 drv=0 | /tmp/tmp.6V4nD9mrpJ/game.g --threads 16 --gpu 3GB
+2026-09-28 07:53:39 test-render-build rc=0 ms=169 load=1.04 drv=0 | /tmp/tmp.6V4nD9mrpJ/render.g --gpu-build
+2026-09-28 07:53:40 test-render rc=0 ms=1389 load=0.96 drv=0 | /tmp/tmp.6V4nD9mrpJ/render.g --threads 16 --gpu 3GB
+2026-09-28 07:53:45 test-render_full-build rc=0 ms=184 load=0.96 drv=0 | /tmp/tmp.6V4nD9mrpJ/render_full.g --gpu-build
+2026-09-28 07:53:46 test-render_full rc=0 ms=3391 load=0.96 drv=0 | /tmp/tmp.6V4nD9mrpJ/render_full.g --threads 16 --gpu 3GB
+2026-09-28 07:53:51 test-world-build rc=0 ms=129 load=0.97 drv=0 | /tmp/tmp.6V4nD9mrpJ/world.g --gpu-build
+2026-09-28 07:53:52 test-world rc=0 ms=348 load=0.97 drv=0 | /tmp/tmp.6V4nD9mrpJ/world.g --threads 16 --gpu 3GB
+2026-09-28 07:53:54 test-world_full-build rc=0 ms=127 load=0.97 drv=0 | /tmp/tmp.6V4nD9mrpJ/world_full.g --gpu-build
+2026-09-28 07:53:55 test-world_full rc=0 ms=792 load=0.89 drv=0 | /tmp/tmp.6V4nD9mrpJ/world_full.g --threads 16 --gpu 3GB
+2026-09-28 07:54:10 gbuild rc=0 ms=43649 load=1.07 drv=0 | build/play_port --gpu-build
+2026-09-28 07:54:58 gport rc=0 ms=15572 load=1.85 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_LOG=1 PLAY_HW=1 PLAY_W=3840 PLAY_H=2160 PLAY_U=1 build/play_port --threads 16 --gpu 3GB

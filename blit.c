@@ -9,8 +9,8 @@
 // Window.frame does. The events come back as Window.frame
 // gives them (the same five-word records, key codes and list), so input.bend reads either.
 //
-// It reads the runtime's window block (BendWin, the same block window_open.c, window_frame.c and
-// window_close.c share under the BendWin guard) and, on the GPU lane, the device heap and the
+// It reads the leading fields of the runtime's window block (BendWin, which window_open.c,
+// window_frame.c and window_close.c, or window.c on newer runtimes, share; blit.c's copy is BcWin) and, on the GPU lane, the device heap and the
 // twin's chunk states (gpu_vram, gpu_twin, gpu_state, io_gpu): a package effect that leans on
 // those internals. The twin path compiles only where the runtime has the twin heap (GPU_DIRTY
 // defined: the CUDA-over-HIP tree); a CUDA runtime without it reads e.mem, as upstream's
@@ -23,8 +23,8 @@
 // pump, the pace and the blit.
 #if defined(__linux__) && !defined(__OBJC__)   // X11, as window_open.c (the Mac build is Objective-C)
 
-#ifndef BendWin
-#define BendWin BendWin
+// BcWin mirrors the leading fields of the runtime's BendWin (newer runtimes append fields such as
+// grab), so blit.c reads the same block without redefining the runtime's type.
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/keysym.h>
@@ -37,8 +37,7 @@ typedef struct {
   u32      n;
   u32      cap;
   u32*     evs;
-} BendWin;
-#endif
+} BcWin;
 
 #include <dlfcn.h>
 #include <pthread.h>
@@ -106,7 +105,7 @@ static u32 bc_key(XKeyEvent* ev) {
   return 65536 + ev->keycode;
 }
 
-static void bc_push(BendWin* win, u32 kind, u32 a, u32 b, u32 c, u32 d) {
+static void bc_push(BcWin* win, u32 kind, u32 a, u32 b, u32 c, u32 d) {
   if (win->n == win->cap) {
     win->cap = win->cap == 0 ? 64 : win->cap * 2;
     win->evs = io_mem(realloc(win->evs, win->cap * 20));
@@ -122,7 +121,7 @@ static u32 bc_clip(int v, u32 most) {
 
 static void bc_shm_ev(XEvent* ev);
 
-static void bc_pump(BendWin* win) {
+static void bc_pump(BcWin* win) {
   u32 w = win->img->width;
   u32 h = win->img->height;
   while (XPending(win->dpy) > 0) {
@@ -463,7 +462,7 @@ static int bc_xerr_h(Display* d, XErrorEvent* ev) {
   return 0;
 }
 
-static XImage* bc_shm_img(BendWin* win, BcShmSeg* seg, u32 iw, u32 ih) {
+static XImage* bc_shm_img(BcWin* win, BcShmSeg* seg, u32 iw, u32 ih) {
   Display* d = win->dpy;
   int scr = DefaultScreen(d);
   XImage* src = win->img;
@@ -506,7 +505,7 @@ static XImage* bc_shm_img(BendWin* win, BcShmSeg* seg, u32 iw, u32 ih) {
   return im;
 }
 
-static void bc_shm_init(BendWin* win, u32 iw, u32 ih) {
+static void bc_shm_init(BcWin* win, u32 iw, u32 ih) {
   bc_shm = 0;
   const char* v = getenv("PLAY_SHM");
   if (v != NULL && v[0] == '0') {
@@ -562,7 +561,7 @@ static void          (*bc_rsf)(Display*, unsigned long, const char*, int*, int);
 static void          (*bc_rco)(Display*, int, unsigned long, unsigned long, unsigned long, int, int,
   int, int, int, int, unsigned int, unsigned int);
 
-static void bc_xr_init(BendWin* win, u32 ws, u32 hs, u32 u) {
+static void bc_xr_init(BcWin* win, u32 ws, u32 hs, u32 u) {
   bc_xr = 0;
   const char* v = getenv("PLAY_XR");
   if (u == 0 || u > 8 || (v != NULL && v[0] == '0')) {
@@ -604,7 +603,7 @@ static void bc_xr_init(BendWin* win, u32 ws, u32 hs, u32 u) {
 
 // Waits until the server has read the image this frame fills (the events that come meanwhile
 // are queued for the pump as they are).
-static void bc_shm_wait(BendWin* win) {
+static void bc_shm_wait(BcWin* win) {
   if (bc_nimg == 1) {
     if (bc_inuse[0]) {
       XSync(win->dpy, False);
@@ -619,7 +618,7 @@ static void bc_shm_wait(BendWin* win) {
   }
 }
 
-static Term bc_frame(Env e, BendWin* win, Term fb, u32 ws, u32 hs, u32 u) {
+static Term bc_frame(Env e, BcWin* win, Term fb, u32 ws, u32 hs, u32 u) {
   if (bc_hw < 0) {
     bc_hw = bc_env("PLAY_HW");
     if (bc_hw) {
@@ -742,7 +741,7 @@ static Term bc_frame(Env e, BendWin* win, Term fb, u32 ws, u32 hs, u32 u) {
 }
 
 Term blit_frame_run(Env e, Term* f, IoWork* w) {
-  Term events = bc_frame(e, (BendWin*)(intptr_t)io_hand_v(f[0]), f[1], (u32)f[2], (u32)f[3],
+  Term events = bc_frame(e, (BcWin*)(intptr_t)io_hand_v(f[0]), f[1], (u32)f[2], (u32)f[3],
     (u32)f[4]);
   return io_tup(e, f[0], io_tup(e, f[1], events));
 }

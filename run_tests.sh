@@ -8,7 +8,7 @@
 #   c1, c16  a plain CPU build (pr/gpu-profile, no GPU code) on 1 and 16 threads
 #   gpu      the CUDA-over-HIP build (pr/gpu-profile): --gpu-build and the run each go through
 #            tools/gx.sh (the bench lock, a timeout, the driver check); every ! runs on the GPU
-#   main     a plain CPU build with upstream main (pr/main-229), 16 threads: no dependency on the fork
+#   main     a plain CPU build with upstream main (pr/main-ef66), 16 threads: no dependency on the fork
 # A test may name its lanes in a line "#lanes js,c1,..." (the default is every lane).
 set -u
 cd "$(dirname "$0")"

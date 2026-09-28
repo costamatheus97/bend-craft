@@ -105,6 +105,9 @@ def Input.event(~map: U32 -> U32, e: Event, i: Input) -> Input:
     case Close{}:
       Input{keys, mx, my, mb} = i
       Input{U32.or(keys, Key.quit()), mx, my, mb}
+    # Newer runtimes add events (Look, Scroll) that the pad ignores.
+    case _:
+      i
 
 # A frame's events, in order, folded into the input they change.
 def Input.feed.with(~map: U32 -> U32, es: List<Event>, i: Input) -> Input:

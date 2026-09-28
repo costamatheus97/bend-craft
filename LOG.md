@@ -196,3 +196,15 @@ Reading:
 Every attempt from here on, with its expected and measured gain, the rounds behind each number
 and the commit, is in `OPTIMIZATIONS.md` (1-34); the rungs reached are in the README. Every GPU
 process ran under `tools/gx.sh` and every `drv.sh` check printed 0 (`logs/gpu.log`).
+
+## 2026-09-28 07:40 upstream main ef66a7cc (after 2.0.32)
+
+The `main` lane moves from pr/main-229 (574b6d39) to pr/main-ef66 (ef66a7cc), which has the hoist
+(#1155) and the new window block. Two changes were needed, and both still build on the fork tree:
+- `Input.event` ends with `case _:`. The new runtime's `Event` has `Look` and `Scroll`, which the pad
+  ignores; the fork tree's has neither, so the file doesn't name them.
+- `blit.c` keeps its own `BcWin` (the leading fields of the runtime's `BendWin`) instead of
+  redefining `BendWin`. The new window.c defines it with an extra `grab` field and no guard macro.
+Tests: 21 of 21 on check, js, c1, c16 and main; 5 of 5 on gpu. Paced 640x360 on the CPU, the same
+source on both runtimes, 3 rounds interleaved: busy p95 16.75-16.98 -> 15.95-16.30, p99
+18.23-18.73 -> 17.20-18.20. The p99 still misses the rung. Frame 300 is the same bytes on both.
