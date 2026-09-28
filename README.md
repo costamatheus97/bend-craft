@@ -202,30 +202,28 @@ Every resolution on both lanes, tier 3, view distance 48, the scripted walk in t
 - **fps** is how many frames a second the frame's work allows (1000 / the median busy time). A
   paced game shows 60; above 60 it is headroom, and below 60 it is the frame rate you get.
 - **1% low** is 1000 / busy p99 (the worst round).
-- **60 fps** is the ladder's verdict. A plain yes passed in 3 rounds or more; yes\* passed in the 2
-  rounds of the all-resolutions sweep and has fewer samples than a rung that passed in 3.
 
 upN means each sample is N x N pixels (the X server scales it up). The numbers come from
 `logs/res-sweep.txt` (2026-09-28); the 3-round rungs are in `OPTIMIZATIONS.md`.
 
 GPU lane, RX 7800 XT (the fork runtime f81948eb, CUDA over HIP):
 
-| Resolution | Samples | fps | 1% low | busy p95 (ms) | 60 fps |
-|-|-|-|-|-|-|
-| 320x180 | 320x180 | 236 | 159 | 4.9-5.1 | yes\* |
-| 640x360 | 640x360 | 177 | 144 | 6.3-6.5 | yes\* |
-| 720p up4 | 320x180 | 225 | 173 | 5.1-5.3 | yes\* |
-| 720p up2 | 640x360 | 169 | 121 | 6.6-7.5 | yes\* |
-| 720p | 1280x720 | 94 | 63 | 12.5-12.7 | yes |
-| 1080p up4 | 480x270 | 202 | 156 | 5.8 | yes\* |
-| 1080p up2 | 960x540 | 120 | 102 | 9.2-9.4 | yes |
-| 1080p | 1920x1080 | 78 | 64 | 14.5-14.6 | yes |
-| 1440p up4 | 640x360 | 167 | 130 | 7.0-7.2 | yes\* |
-| 1440p up2 | 1280x720 | 85 | 68 | 13.4-13.7 | yes |
-| 1440p | 2560x1440 | 54 | 46 | 21.2 | no |
-| 4K up4 | 960x540 | 110 | 90 | 10.6 | yes |
-| 4K up2 | 1920x1080 | 74 | 60 | 15.7 | no (p99 at the limit) |
-| 4K | 3840x2160 | 24 | 21 | 46.2 | no |
+| Resolution | Samples | fps | 1% low | busy p95 (ms) |
+|-|-|-|-|-|
+| 320x180 | 320x180 | 236 | 159 | 4.9-5.1 |
+| 640x360 | 640x360 | 177 | 144 | 6.3-6.5 |
+| 720p up4 | 320x180 | 225 | 173 | 5.1-5.3 |
+| 720p up2 | 640x360 | 169 | 121 | 6.6-7.5 |
+| 720p | 1280x720 | 94 | 63 | 12.5-12.7 |
+| 1080p up4 | 480x270 | 202 | 156 | 5.8 |
+| 1080p up2 | 960x540 | 120 | 102 | 9.2-9.4 |
+| 1080p | 1920x1080 | 78 | 64 | 14.5-14.6 |
+| 1440p up4 | 640x360 | 167 | 130 | 7.0-7.2 |
+| 1440p up2 | 1280x720 | 85 | 68 | 13.4-13.7 |
+| 1440p | 2560x1440 | 54 | 46 | 21.2 |
+| 4K up4 | 960x540 | 110 | 90 | 10.6 |
+| 4K up2 | 1920x1080 | 74 | 60 | 15.7 |
+| 4K | 3840x2160 | 24 | 21 | 46.2 |
 
 4K up2 is right at the limit. p95 passes, and p99 was 16.7 in the sweep's round and 17.3-17.9 in the
 ladder's rounds. A prototype of an upstream compiler change (the array's location read once per ray,
@@ -234,22 +232,22 @@ not once per voxel) takes it to p95 15.1-15.4 / p99 16.0-16.2, which passes; see
 
 CPU lane, Ryzen 7 5800XT, 16 threads (upstream main ef66a7cc, no GPU code):
 
-| Resolution | Samples | fps | 1% low | busy p95 (ms) | 60 fps |
-|-|-|-|-|-|-|
-| 320x180 | 320x180 | 218 | 179 | 5.2-5.4 | yes |
-| 640x360 | 640x360 | 70 | 50 | 17.1-18.6 | no (close) |
-| 720p up4 | 320x180 | 211 | 170 | 5.5-5.6 | yes |
-| 720p up2 | 640x360 | 67 | 44 | 18.3-19.5 | no |
-| 720p | 1280x720 | 19 | 15 | 60.7-61.5 | no |
-| 1080p up4 | 480x270 | 114 | 89 | 10.3 | yes |
-| 1080p up2 | 960x540 | 32 | 25 | 36.0-36.6 | no |
-| 1080p | 1920x1080 | 9 | 7 | 126-131 | no |
-| 1440p up4 | 640x360 | 66 | 48 | 18.0-19.2 | no |
-| 1440p up2 | 1280x720 | 19 | 14 | 63-66 | no |
-| 1440p | 2560x1440 | 5 | 4 | 206-215 | no |
-| 4K up4 | 960x540 | 31 | 25 | 37.6 | no |
-| 4K up2 | 1920x1080 | 9 | 8 | 124 | no |
-| 4K | 3840x2160 | 2 | 2 | 467 | no |
+| Resolution | Samples | fps | 1% low | busy p95 (ms) |
+|-|-|-|-|-|
+| 320x180 | 320x180 | 218 | 179 | 5.2-5.4 |
+| 640x360 | 640x360 | 70 | 50 | 17.1-18.6 |
+| 720p up4 | 320x180 | 211 | 170 | 5.5-5.6 |
+| 720p up2 | 640x360 | 67 | 44 | 18.3-19.5 |
+| 720p | 1280x720 | 19 | 15 | 60.7-61.5 |
+| 1080p up4 | 480x270 | 114 | 89 | 10.3 |
+| 1080p up2 | 960x540 | 32 | 25 | 36.0-36.6 |
+| 1080p | 1920x1080 | 9 | 7 | 126-131 |
+| 1440p up4 | 640x360 | 66 | 48 | 18.0-19.2 |
+| 1440p up2 | 1280x720 | 19 | 14 | 63-66 |
+| 1440p | 2560x1440 | 5 | 4 | 206-215 |
+| 4K up4 | 960x540 | 31 | 25 | 37.6 |
+| 4K up2 | 1920x1080 | 9 | 8 | 124 |
+| 4K | 3840x2160 | 2 | 2 | 467 |
 
 640x360, and every rung with the same 640x360 samples, is close. Its p95 passes in some rounds,
 and its p99 is 0.5-3.5 ms over (17.2-20.2 across the sessions). A prototype of an upstream change to the CPU pool (the frontier grown
