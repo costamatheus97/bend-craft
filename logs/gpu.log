@@ -497,3 +497,15 @@
 2026-09-28 01:52:26 1080n-r4 rc=0 ms=15359 load=3.22 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_HW=1 PLAY_W=1920 PLAY_H=1080 build/playk --threads 16 --gpu 3GB
 2026-09-28 01:52:42 1080n-r5 rc=0 ms=15345 load=3.63 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_HW=1 PLAY_W=1920 PLAY_H=1080 build/playk --threads 16 --gpu 3GB
 2026-09-28 01:53:08 shot1080n rc=0 ms=15399 load=3.19 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_W=1920 PLAY_H=1080 PLAY_SHOT=/tmp/claude-1000/-home-costamatheus97-vt-brainstorm-ai-bend2-hip/da5577c9-5150-4697-88b6-9b24e8da3ac3/scratchpad/k1080.ppm build/playk --threads 16 --gpu 3GB
+2026-09-28 01:57:41 playl-build rc=0 ms=37762 load=3.26 drv=0 | build/playl --gpu-build
+2026-09-28 01:58:19 playl-smoke rc=0 ms=558 load=3.13 drv=0 | PLAY_W=320 PLAY_H=180 PLAY_DEMO=1 PLAY_N=17 build/playl --threads 16 --gpu 3GB
+2026-09-28 01:58:20 ab-playk rc=0 ms=15648 load=3.13 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_HW=1 PLAY_W=3840 PLAY_H=2160 PLAY_U=2 build/playk --threads 16 --gpu 3GB
+2026-09-28 01:58:36 ab-playl rc=0 ms=15423 load=3.39 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_HW=1 PLAY_W=3840 PLAY_H=2160 PLAY_U=2 build/playl --threads 16 --gpu 3GB
+2026-09-28 01:58:52 ab-playk rc=0 ms=15564 load=3.44 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_HW=1 PLAY_W=3840 PLAY_H=2160 PLAY_U=2 build/playk --threads 16 --gpu 3GB
+2026-09-28 01:59:08 ab-playl rc=0 ms=15409 load=3.35 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_HW=1 PLAY_W=3840 PLAY_H=2160 PLAY_U=2 build/playl --threads 16 --gpu 3GB
+2026-09-28 01:59:24 ab-playk rc=0 ms=15598 load=3.61 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_HW=1 PLAY_W=3840 PLAY_H=2160 PLAY_U=2 build/playk --threads 16 --gpu 3GB
+2026-09-28 01:59:40 ab-playl rc=0 ms=15432 load=3.84 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_HW=1 PLAY_W=3840 PLAY_H=2160 PLAY_U=2 build/playl --threads 16 --gpu 3GB
+2026-09-28 02:00:04 bt8 rc=0 ms=15418 load=3.40 drv=0 | PLAY_BLIT_T=8 PLAY_DEMO=1 PLAY_N=900 PLAY_HW=1 PLAY_W=3840 PLAY_H=2160 PLAY_U=2 build/playl --threads 16 --gpu 3GB
+2026-09-28 02:00:20 bt4 rc=0 ms=15399 load=3.74 drv=0 | PLAY_BLIT_T=4 PLAY_DEMO=1 PLAY_N=900 PLAY_HW=1 PLAY_W=3840 PLAY_H=2160 PLAY_U=2 build/playl --threads 16 --gpu 3GB
+2026-09-28 02:00:36 bt8 rc=0 ms=15399 load=4.00 drv=0 | PLAY_BLIT_T=8 PLAY_DEMO=1 PLAY_N=900 PLAY_HW=1 PLAY_W=3840 PLAY_H=2160 PLAY_U=2 build/playl --threads 16 --gpu 3GB
+2026-09-28 02:00:52 shot4k rc=0 ms=22474 load=4.21 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_W=3840 PLAY_H=2160 PLAY_U=2 PLAY_SHOT=/tmp/claude-1000/-home-costamatheus97-vt-brainstorm-ai-bend2-hip/da5577c9-5150-4697-88b6-9b24e8da3ac3/scratchpad/l4k.ppm build/playl --threads 16 --gpu 3GB

@@ -38,6 +38,7 @@ typedef struct {
 #endif
 
 #include <dlfcn.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/ipc.h>
@@ -195,15 +196,15 @@ static void bc_report(void) {
 // ---------
 
 // The samples into pix (w x h pixels): sample (x >> u, y >> u) at each pixel.
-static void bc_scale(u32* pix, u32 w, u32 h, const u32* src, u32 ws, u32 u) {
+static void bc_scale_rows(u32* pix, u32 w, u32 y0, u32 h, const u32* src, u32 ws, u32 u) {
   if (u == 0) {
-    for (u32 y = 0; y < h; y += 1) {
+    for (u32 y = y0; y < h; y += 1) {
       memcpy(pix + (u64)y * w, src + (u64)y * ws, (size_t)w * 4);
     }
     return;
   }
   // Each sample row is widened once, then its copies are memcpys of the widened row.
-  for (u32 y = 0; y < h; y += 1u << u) {
+  for (u32 y = y0; y < h; y += 1u << u) {
     const u32* row = src + (u64)(y >> u) * ws;
     u32*       out = pix + (u64)y * w;
     if (u == 1) {
@@ -221,6 +222,52 @@ static void bc_scale(u32* pix, u32 w, u32 h, const u32* src, u32 ws, u32 u) {
     }
     for (u32 k = 1; k < (1u << u) && y + k < h; k += 1) {
       memcpy(out + (u64)k * w, out, (size_t)w * 4);
+    }
+  }
+}
+
+// The upscale in bands of rows on a few threads (PLAY_BLIT_T, default 4) when the window is
+// large: at 3840x2160 it writes 33 MB a frame, more than one core's store bandwidth in 2 ms.
+typedef struct {
+  u32* pix; u32 w; u32 y0; u32 y1; const u32* src; u32 ws; u32 u;
+} BcBand;
+
+static void* bc_band(void* a) {
+  BcBand* b = (BcBand*)a;
+  bc_scale_rows(b->pix, b->w, b->y0, b->y1, b->src, b->ws, b->u);
+  return NULL;
+}
+
+static void bc_scale(u32* pix, u32 w, u32 h, const u32* src, u32 ws, u32 u) {
+  static int nt = -1;
+  if (nt < 0) {
+    const char* v = getenv("PLAY_BLIT_T");
+    nt = v != NULL ? atoi(v) : 4;
+    nt = nt < 1 ? 1 : nt > 16 ? 16 : nt;
+  }
+  u32 t = (u64)w * h >= 2000000 ? (u32)nt : 1;
+  if (t == 1) {
+    bc_scale_rows(pix, w, 0, h, src, ws, u);
+    return;
+  }
+  u32 step = 1u << u;
+  u32 band = ((h + t - 1) / t + step - 1) / step * step;   // whole sample rows per band
+  BcBand    b[16];
+  pthread_t th[16];
+  bool      ok[16];
+  for (u32 i = 0; i < t; i += 1) {
+    u32 y0 = i * band;
+    u32 y1 = y0 + band < h ? y0 + band : h;
+    b[i] = (BcBand){ pix, w, y0 < h ? y0 : h, y1, src, ws, u };
+    ok[i] = i > 0 && pthread_create(&th[i], NULL, bc_band, &b[i]) == 0;
+    if (i > 0 && !ok[i]) {
+      bc_band(&b[i]);
+    }
+  }
+  bc_band(&b[0]);
+  for (u32 i = 1; i < t; i += 1) {
+    if (ok[i]) {
+      pthread_join(th[i], NULL);
     }
   }
 }
