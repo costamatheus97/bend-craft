@@ -1,0 +1,8 @@
+1280x720 tier 3 vd 48 d 14 bang 1 img 0 :: frame med 7.01 p95 7.52 p99 9.60 n 56 | turn 6.98 | up 0.64 | run 5.55 | down 0.77 | wait 5.32 | passes 1
+1280x720 tier 3 vd 48 d 14 bang 1 img 1 :: frame med 9.99 p95 14.74 p99 15.05 n 56 | turn 9.95 | up 0.83 | run 7.74 | down 1.18 | wait 7.25 | passes 2
+1280x720 tier 3 vd 48 d 14 bang 1 img 0 :: frame med 8.06 p95 12.18 p99 12.28 n 56 | turn 8.09 | up 0.67 | run 6.67 | down 0.85 | wait 6.45 | passes 1
+1280x720 tier 3 vd 48 d 14 bang 1 img 1 :: frame med 10.69 p95 13.99 p99 14.98 n 56 | turn 10.70 | up 0.81 | run 8.59 | down 1.24 | wait 8.05 | passes 2
+1920x1080 tier 3 vd 48 d 14 bang 1 img 0 :: frame med 13.02 p95 16.56 p99 18.57 n 56 | turn 13.09 | up 0.65 | run 11.35 | down 0.83 | wait 11.12 | passes 1
+1920x1080 tier 3 vd 48 d 14 bang 1 img 1 :: frame med 15.99 p95 19.70 p99 22.21 n 56 | turn 16.00 | up 0.77 | run 14.05 | down 1.15 | wait 13.62 | passes 2
+1920x1080 tier 3 vd 48 d 14 bang 1 img 0 :: frame med 12.99 p95 17.68 p99 19.77 n 56 | turn 13.01 | up 0.67 | run 11.44 | down 1.08 | wait 11.22 | passes 1
+1920x1080 tier 3 vd 48 d 14 bang 1 img 1 :: frame med 16.06 p95 20.57 p99 23.03 n 56 | turn 16.06 | up 0.79 | run 13.98 | down 1.29 | wait 13.58 | passes 2

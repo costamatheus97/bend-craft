@@ -18,9 +18,11 @@ c = rep(c, '''  window_fill(e, (u32*)win->img->data, w, h, image, k);
   if (win->dpy == NULL) {
     return;
   }
+  hw_pace_begin();
   if (!hw_nopace()) {
     window_pace();
-  }''')
+  }
+  hw_present();''')
 c = rep(c, '''  BendWin* win = (BendWin*)at;
   io_sync();
   window_pump(win);''', '''  BendWin* win = (BendWin*)at;

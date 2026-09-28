@@ -1,0 +1,32 @@
+gpu 720p-default HW_NOPACE=1 :: sim 0.15/0.21/0.32 | render 10.53/12.39/12.88 | show 1.97/2.34/2.53 | loop 12.72/14.74/15.40 | gprof turn 10.52 up 0.69 wait 8.66 down 0.70
+  HW frames=900 size=1280x720 fill_ms med 1.965 p95 2.312 p99 2.493 | frame_ms med 12.718 p95 14.713 p99 15.583
+gpu 720p-vd64 HW_NOPACE=1 PLAY_VD=64 :: sim 0.15/0.23/0.33 | render 11.10/12.85/13.94 | show 1.95/2.32/2.59 | loop 13.26/15.17/16.38 | gprof turn 11.10 up 0.70 wait 9.17 down 0.72
+  HW frames=900 size=1280x720 fill_ms med 1.941 p95 2.283 p99 2.512 | frame_ms med 13.288 p95 15.655 p99 18.297
+gpu 720p-tier2 HW_NOPACE=1 PLAY_TIER=2 :: sim 0.15/0.21/0.34 | render 10.18/12.29/12.62 | show 2.00/2.38/2.78 | loop 12.37/14.71/15.24 | gprof turn 10.17 up 0.71 wait 8.31 down 0.72
+  HW frames=900 size=1280x720 fill_ms med 1.993 p95 2.376 p99 2.761 | frame_ms med 12.418 p95 14.745 p99 15.449
+gpu 720p-up2 HW_NOPACE=1 PLAY_U=1 PLAY_VD=64 :: sim 0.15/0.21/0.36 | render 6.98/7.54/7.83 | show 1.98/2.28/2.60 | loop 9.16/9.87/10.34 | gprof turn 6.98 up 0.70 wait 5.10 down 0.73
+  HW frames=900 size=1280x720 fill_ms med 1.968 p95 2.252 p99 2.503 | frame_ms med 9.186 p95 9.859 p99 10.291
+gpu 1080p HW_NOPACE=1 PLAY_W=1920 PLAY_H=1080 :: sim 0.15/0.24/0.39 | render 15.46/16.39/16.68 | show 2.51/2.95/3.23 | loop 18.17/19.28/19.82 | gprof turn 15.46 up 0.69 wait 13.56 down 0.74
+  HW frames=900 size=1920x1080 fill_ms med 2.498 p95 2.933 p99 3.217 | frame_ms med 18.208 p95 19.495 p99 23.008
+gpu 1080p-up2 HW_NOPACE=1 PLAY_W=1920 PLAY_H=1080 PLAY_U=1 :: sim 0.16/0.22/0.34 | render 9.65/10.31/10.68 | show 2.58/2.95/3.21 | loop 12.42/13.31/13.84 | gprof turn 9.65 up 0.70 wait 7.70 down 0.74
+  HW frames=900 size=1920x1080 fill_ms med 2.574 p95 2.923 p99 3.216 | frame_ms med 12.447 p95 13.344 p99 13.920
+gpu 640x360 HW_NOPACE=1 PLAY_W=640 PLAY_H=360 :: sim 0.17/0.21/0.31 | render 6.65/7.26/7.52 | show 0.94/1.21/1.39 | loop 7.76/8.61/8.97 | gprof turn 6.64 up 0.72 wait 4.66 down 0.74
+  HW frames=900 size=640x360 fill_ms med 0.931 p95 1.187 p99 1.350 | frame_ms med 7.777 p95 8.702 p99 9.126
+gpu 320x180 HW_NOPACE=1 PLAY_W=320 PLAY_H=180 :: sim 0.15/0.23/0.31 | render 4.74/5.29/5.55 | show 0.86/1.12/1.22 | loop 5.76/6.49/6.90 | gprof turn 4.73 up 0.73 wait 2.69 down 0.79
+  HW frames=900 size=320x180 fill_ms med 0.857 p95 1.081 p99 1.177 | frame_ms med 5.781 p95 6.502 p99 6.877
+gpu 720p-display-nopace DISPLAY_ON=1 HW_NOPACE=1 :: sim 0.27/0.35/0.43 | render 8.10/9.41/9.98 | show 3.40/4.08/4.51 | loop 11.83/13.36/14.04 | gprof turn 8.10 up 0.73 wait 6.13 down 0.72
+  HW frames=900 size=1280x720 fill_ms med 2.133 p95 2.647 p99 3.032 | frame_ms med 11.827 p95 13.509 p99 15.165
+gpu 720p-display-paced DISPLAY_ON=1 :: sim 0.27/0.39/0.50 | render 10.22/12.28/13.22 | show 6.20/7.86/8.34 | loop 16.68/17.27/17.73 | gprof turn 10.21 up 0.78 wait 7.98 down 0.80
+  HW frames=900 size=1280x720 fill_ms med 2.486 p95 3.028 p99 3.298 | frame_ms med 16.698 p95 18.338 p99 18.827
+gpu 1080p-up2-display-nopace DISPLAY_ON=1 HW_NOPACE=1 PLAY_W=1920 PLAY_H=1080 PLAY_U=1 :: sim 0.29/0.40/0.54 | render 9.90/11.14/11.54 | show 6.54/7.90/8.62 | loop 16.79/17.91/18.55 | gprof turn 9.89 up 0.80 wait 7.73 down 0.87
+  HW frames=900 size=1920x1080 fill_ms med 3.496 p95 4.212 p99 4.658 | frame_ms med 16.768 p95 18.016 p99 19.068
+c16 320x180 PLAY_W=320 PLAY_H=180 :: sim 0.00/0.00/0.00 | render 8.01/8.99/10.16 | show 0.54/0.74/0.83 | loop 8.59/9.63/10.84
+  HW frames=300 size=320x180 fill_ms med 0.521 p95 0.703 p99 0.808 | frame_ms med 8.541 p95 9.511 p99 10.460
+c1 320x180 PLAY_W=320 PLAY_H=180 PLAY_D=0 :: sim 0.00/0.00/0.00 | render 20.57/24.33/25.57 | show 0.52/0.63/0.71 | loop 21.10/24.87/26.08
+  HW frames=300 size=320x180 fill_ms med 0.496 p95 0.607 p99 0.673 | frame_ms med 20.939 p95 24.821 p99 25.502
+c16 640x360 PLAY_W=640 PLAY_H=360 :: sim 0.00/0.00/0.00 | render 19.15/22.35/23.51 | show 2.52/2.90/3.13 | loop 21.72/24.91/25.98
+  HW frames=300 size=640x360 fill_ms med 2.496 p95 2.850 p99 3.043 | frame_ms med 21.451 p95 24.761 p99 26.043
+c16 1280x720-up4 PLAY_U=2 :: sim 0.00/0.00/0.00 | render 7.80/8.50/8.78 | show 7.65/8.64/9.67 | loop 15.48/16.67/17.65
+  HW frames=300 size=1280x720 fill_ms med 7.621 p95 8.618 p99 9.527 | frame_ms med 15.460 p95 16.554 p99 17.103
+c16 1280x720  :: sim 0.00/0.00/0.01 | render 65.28/76.52/79.64 | show 12.83/13.65/14.26 | loop 78.39/89.56/92.76
+  HW frames=300 size=1280x720 fill_ms med 12.795 p95 13.572 p99 14.036 | frame_ms med 77.508 p95 89.233 p99 92.877

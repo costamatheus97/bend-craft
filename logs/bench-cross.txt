@@ -1,0 +1,15 @@
+64x36 tier 3 vd 48 d 14 bang 1 img 1 :: frame med 4.27 p95 4.91 p99 6.50 n 36 | turn 4.22 | up 0.99 | run 2.15 | down 1.04 | wait 1.56 | passes 2
+c1 64x36 tier 3 vd 48 d 0 bang 1 img 1 :: frame med 0.93 p95 1.27 p99 1.33 n 36
+c16 64x36 tier 3 vd 48 d 8 bang 1 img 1 :: frame med 2.05 p95 2.35 p99 2.59 n 36
+128x72 tier 3 vd 48 d 14 bang 1 img 1 :: frame med 3.79 p95 4.54 p99 5.73 n 36 | turn 3.78 | up 0.77 | run 2.12 | down 0.86 | wait 1.68 | passes 2
+c1 128x72 tier 3 vd 48 d 0 bang 1 img 1 :: frame med 3.27 p95 4.42 p99 4.47 n 36
+c16 128x72 tier 3 vd 48 d 8 bang 1 img 1 :: frame med 2.31 p95 2.83 p99 3.05 n 36
+192x108 tier 3 vd 48 d 14 bang 1 img 1 :: frame med 4.34 p95 4.75 p99 6.03 n 36 | turn 4.34 | up 0.87 | run 2.33 | down 1.15 | wait 1.81 | passes 2
+c1 192x108 tier 3 vd 48 d 0 bang 1 img 1 :: frame med 6.69 p95 9.64 p99 9.87 n 36
+c16 192x108 tier 3 vd 48 d 8 bang 1 img 1 :: frame med 3.09 p95 3.62 p99 3.69 n 36
+256x144 tier 3 vd 48 d 14 bang 1 img 1 :: frame med 4.81 p95 5.41 p99 6.68 n 36 | turn 4.80 | up 0.79 | run 2.92 | down 1.07 | wait 2.47 | passes 2
+c1 256x144 tier 3 vd 48 d 0 bang 1 img 1 :: frame med 11.84 p95 17.09 p99 17.36 n 36
+c16 256x144 tier 3 vd 48 d 8 bang 1 img 1 :: frame med 3.73 p95 5.34 p99 5.49 n 36
+320x180 tier 3 vd 48 d 14 bang 1 img 1 :: frame med 5.52 p95 6.26 p99 7.04 n 36 | turn 5.48 | up 0.96 | run 3.21 | down 1.33 | wait 2.65 | passes 2
+c1 320x180 tier 3 vd 48 d 0 bang 1 img 1 :: frame med 18.22 p95 25.97 p99 26.24 n 36
+c16 320x180 tier 3 vd 48 d 8 bang 1 img 1 :: frame med 5.11 p95 7.05 p99 7.45 n 36
