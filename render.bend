@@ -283,17 +283,18 @@ type Hit is Data:
 def none() -> U32:
   4294967295
 
-# The word of cell (x, y, z), or 0 without a read when stop.
-def rd(stop: Bool, +lc: Nat, +x: U32, +y: U32, +z: U32, w: Array<U32>) -> Array<U32> & U32:
-  match stop:
-    case True{}:
-      (w, 0)
-    case False{}:
-      w[W.word(lc, x, y, z)]
+# The word of cell (x, y, z), read even when the ray stops there (then
+# unused; an index past the world wraps, Bend masks it): the read's
+# address never waits on the last read's value, so a lane can have the
+# next cell's read in flight while it tests this one.
+def rd(+lc: Nat, +x: U32, +y: U32, +z: U32, w: Array<U32>) -> Array<U32> & U32:
+  w[W.word(lc, x, y, z)]
 
 # One cell a step. r holds the word of cell (x, y, z), entered at t through
 # face f. hb/hx/hy/hz/ht/hf: the last cell, the hit when stop comes (hb 0:
-# no hit). wt: the t the ray entered water, or none().
+# no hit). wt: the t the ray entered water, or none(). Whether to stop is
+# never needed to pick the next cell, so a GPU lane issues the next read
+# before this one's value arrives.
 def go(
   n: Nat, stop: Bool, +x: U32, +y: U32, +z: U32, +tx: U32, +ty: U32, +tz: U32, +t: U32, +f: U32,
   +wt: U32, +hb: U32, +hx: U32, +hy: U32, +hz: U32, +ht: U32, +hf: U32, +sx: U32, +sy: U32,
@@ -325,7 +326,7 @@ def go(
           go(k, st, xn, yn, zn, (tx + Fx.sel(ax, ddx, 0) : U32), (ty + Fx.sel(ay, ddy, 0) : U32),
             (tz + Fx.sel(az, ddz, 0) : U32), tm, Fx.sel(ax, fX, Fx.sel(ay, fY, fZ)),
             Fx.sel(wet && U32.is_eq(wt, none()), t, wt), Fx.sel(solid, b, 0), x, y, z, t, f, sx, sy,
-            sz, ddx, ddy, ddz, fX, fY, fZ, tmax, side, lc, rd(st, lc, xn, yn, zn, w))
+            sz, ddx, ddy, ddz, fX, fY, fZ, tmax, side, lc, rd(lc, xn, yn, zn, w))
 
 # t per cell along an axis of |d| = ad (2^27, beyond any view, when ad is tiny).
 def ddt(+ad: U32) -> U32:
@@ -355,7 +356,7 @@ def cast(w: Array<U32>, +ox: U32, +oy: U32, +oz: U32, +dx: U32, +dy: U32, +dz: U
   go(U32.to_nat((vd * 3 + 3 : U32)), out, x, y, z, tmx(ox, dx, ddx), tmx(oy, dy, ddy),
     tmx(oz, dz, ddz), 0, 2, none(), 0, x, y, z, 0, 2, step(dx), step(dy), step(dz), ddx, ddy, ddz,
     Fx.sel(Fx.isneg(dx), 0, 1), Fx.sel(Fx.isneg(dy), 2, 3), Fx.sel(Fx.isneg(dz), 4, 5), tmax, side,
-    lc, rd(out, lc, x, y, z, w))
+    lc, rd(lc, x, y, z, w))
 
 # Shading
 # -------
@@ -645,8 +646,9 @@ def pixel(w: Array<U32>, +sx: U32, +sy: U32, +c: Cam) -> Array<U32> & U32:
 type P2 is Type:
   P2{a: Array<U32>, b: Array<U32>}
 
-# Samples i .. i + n (row-major from (x, y)) into fb; r: the colour of (x, y).
-def put(~wr: Array<U32> -> U32 -> U32 -> Array<U32>, n: Nat, +x: U32, +y: U32, +c: Cam, fb: Array<U32>, r: Array<U32> & U32) -> P2:
+# Samples (x, y) and n more, each s samples (sx columns and sy rows)
+# after the last, into fb (row-major, ws wide); r: the colour of (x, y).
+def put(~wr: Array<U32> -> U32 -> U32 -> Array<U32>, n: Nat, +x: U32, +y: U32, +sx: U32, +sy: U32, +c: Cam, fb: Array<U32>, r: Array<U32> & U32) -> P2:
   match n:
     case 0n:
       Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc} = c
@@ -655,12 +657,13 @@ def put(~wr: Array<U32> -> U32 -> U32 -> Array<U32>, n: Nat, +x: U32, +y: U32, +
     case 1n+p:
       Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc} = c
       (w, +col) = r
-      +e = U32.is_eq((x + 1 : U32), ws)
-      +x2 = Fx.sel(e, 0, (x + 1 : U32))
-      +y2 = Fx.sel(e, (y + 1 : U32), y)
-      put(~wr, p, x2, y2, c, wr(fb, (y * ws + x : U32), col), pixel(w, x2, y2, c))
+      +xa = (x + sx : U32)
+      +e = (xa >= ws : U32)
+      +x2 = Fx.sel(e, (xa - ws : U32), xa)
+      +y2 = (y + sy + Fx.b2u(e) : U32)
+      put(~wr, p, x2, y2, sx, sy, c, wr(fb, (y * ws + x : U32), col), pixel(w, x2, y2, c))
 
-def leaf.if(~wr: Array<U32> -> U32 -> U32 -> Array<U32>, e: Bool, +i: U32, +i1: U32, +c: Cam, w: Array<U32>, fb: Array<U32>) -> P2:
+def leaf.if(~wr: Array<U32> -> U32 -> U32 -> Array<U32>, e: Bool, +i: U32, +s: U32, +c: Cam, w: Array<U32>, fb: Array<U32>) -> P2:
   match e:
     case True{}:
       P2{w, fb}
@@ -668,7 +671,8 @@ def leaf.if(~wr: Array<U32> -> U32 -> U32 -> Array<U32>, e: Bool, +i: U32, +i1: 
       Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc} = c
       +x = U32.mod(i, ws)
       +y = U32.div(i, ws)
-      put(~wr, U32.to_nat((i1 - i - 1 : U32)), x, y, c, fb, pixel(w, x, y, c))
+      put(~wr, U32.to_nat(U32.div((ws * hs - 1 - i : U32), s)), x, y, U32.mod(s, ws), U32.div(s, ws), c,
+        fb, pixel(w, x, y, c))
 
 @unsafe
 def P2.join(l: P2, r: P2) -> P2:
@@ -676,21 +680,26 @@ def P2.join(l: P2, r: P2) -> P2:
   P2{ra, rb} = r
   P2{Array.join(U32, la, ra), Array.join(U32, lb, rb)}
 
-# d fork levels over samples [i, i1); a leaf is one flat loop (none when empty).
+# d fork levels; leaf i of s = 2^d (in tree order) takes samples i, i + s,
+# i + 2 s, ... (row-major): every leaf gets rays from the whole frame (sky,
+# horizon and ground alike), so the leaves cost about the same, and
+# neighbour leaves (dealt to neighbour lanes of a GPU wave) trace
+# neighbour samples side by side, so their loops take about as many steps
+# as each other. A leaf is one flat loop (none when i is past the frame).
 @unsafe
-def node(~wr: Array<U32> -> U32 -> U32 -> Array<U32>, +d: Nat, +i: U32, +i1: U32, +c: Cam, +w: Array<U32>, +fb: Array<U32>) -> P2:
+def node(~wr: Array<U32> -> U32 -> U32 -> Array<U32>, +d: Nat, +i: U32, +s: U32, +c: Cam, +w: Array<U32>, +fb: Array<U32>) -> P2:
   match d:
     case 0n:
-      leaf.if(~wr, (i >= i1 : U32), i, i1, c, w, fb)
+      Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc} = c
+      leaf.if(~wr, (i >= ws * hs : U32), i, s, c, w, fb)
     case 1n+e:
-      +m = U32.shrn((i + i1 : U32), 1n)
-      a b = node(~wr, e, i, m, c, w, fb) node(~wr, e, m, i1, c, w, fb)
+      a b = node(~wr, e, i, s, c, w, fb) node(~wr, e, (i + U32.shln(1, e) : U32), s, c, w, fb)
       P2.join(a, b)
 
 # The frame into fb (ws x hs, row-major): P2{w, fb}.
 def fill(~wr: Array<U32> -> U32 -> U32 -> Array<U32>, +c: Cam, +d: Nat, w: Array<U32>, fb: Array<U32>) -> P2:
   Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc} = c
-  node(~wr, d, 0, (ws * hs : U32), c, w, fb)
+  node(~wr, d, 0, U32.shln(1, d), c, w, fb)
 
 # The window image
 # ----------------
