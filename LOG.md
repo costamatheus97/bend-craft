@@ -138,3 +138,61 @@ Reading:
   same within noise (8.9-10.2).
 - CPU: 16 threads reach 60 fps (render only) at 320 x 180 (5.8 ms); 640 x 360 is 17 ms, 720p 67 ms.
   One thread: 21 ms at 320 x 180.
+
+## 2026-09-27 23:34-23:53 M3: the player
+
+`game.bend` (0c70699): the game as a pure 60 Hz `step` on `loop.bend`'s contract, all U32 fixed
+point. Look (yaw and pitch from the keys or the mouse), walk, gravity, jump and swim, AABB
+collision one axis at a time, break and place along the eye ray, a 9-slot hotbar, a key map, and
+`render(state)`, which draws the view, the hotbar, the crosshair and the aimed block's outline in
+one bang.
+
+Tests (`tests/game.bend`), the same output on js, c1, c16, main and gpu:
+- a hand-built scene: landing, walls, the world's edge, a jump into a slab, a hole;
+- break and place, and placing into the player's own box (refused);
+- a scripted run over generated terrain, replayed from its encoded input log to the same state;
+- the rendered frame after that run (its hash).
+
+## 2026-09-28 00:00-00:10 M4: the game in a window
+
+`play.bend` (598182a): the window loop. Events fold into the held input, the clock owes ticks at
+60 a second, the sim runs them, the frame renders in one bang and is shown. `PLAY_DEMO=1` is a
+scripted walk (forward, turning right a quarter of the time, a jump every 1.5 s, one tick a frame)
+so runs are reproducible; `PLAY_LOG=1` prints sim / render / show per frame. `tools/hw.c` (the hw
+harness) adds the paced metrics: present (the interval between presents), busy (the frame's work
+without the pace's sleep) and missed frames. Also in 046c0d2: a direct-to-Image render path (the
+same picture, slower) and the conversion's tile size.
+
+Bench (`bench/m4.sh`, `logs/bench-m4.txt`; the walk, 900 frames on the GPU, 300 on the CPU,
+offscreen and unpaced unless noted; medians of sim / render / show / loop in ms):
+
+| Lane | Size | render | show | loop |
+|-|-|-|-|-|
+| gpu | 1280x720 | 10.53 | 1.97 | 12.72 |
+| gpu | 1280x720 up2 (vd 64) | 6.98 | 1.98 | 9.16 |
+| gpu | 1920x1080 | 15.46 | 2.51 | 18.17 |
+| gpu | 1920x1080 up2 | 9.65 | 2.58 | 12.42 |
+| gpu | 1280x720, real window, unpaced | 8.10 | 3.40 | 11.83 |
+| c16 | 320x180 | 8.01 | 0.54 | 8.59 |
+| c16 | 640x360 | 19.15 | 2.52 | 21.72 |
+| c16 | 1280x720 | 65.28 | 12.83 | 78.39 |
+| c1 | 320x180 | 20.57 | 0.52 | 21.10 |
+
+Reading:
+- On the GPU the render is the bang (turn ≈ render): up 0.7, the kernel, down 0.7-0.8 ms.
+- The show stage was the other cost: the Image conversion in the bang (`logs/bench-conv.txt`: +2.5
+  to +3 ms at 720p and 1080p), then `Window.frame`'s fill (2 ms at 720p, 2.5 at 1080p). In the real
+  window, unpaced, show was 3.4 ms at 720p. That is what the ladder went after first (`Blit.frame`).
+- Mode 0, rendering straight into the Image, is 2x slower at 720p and 4.4x at 1080p
+  (`logs/bench-mode.txt`); mode 1 stayed the default until `Blit.frame`.
+- Up to 320x180, c16 is as fast as the GPU or faster (`logs/bench-cross.txt`: 3.7 vs 4.8 ms at
+  256x144, 5.1 vs 5.5 at 320x180): the GPU turn's fixed ~1.8 ms dominates there. At 640x360 the GPU is
+  2.9x faster (render 6.65 vs 19.15 ms in `logs/bench-m4.txt`), at 720p 6x.
+- Tile size of the conversion (`logs/bench-tl.txt`): TL 2, 3 and 4 are within the noise over two
+  rounds; TL 4 stayed the default.
+
+## 2026-09-28 00:10-04:20 the ladder
+
+Every attempt from here on, with its expected and measured gain, the rounds behind each number
+and the commit, is in `OPTIMIZATIONS.md` (1-34); the rungs reached are in the README. Every GPU
+process ran under `tools/gx.sh` and every `drv.sh` check printed 0 (`logs/gpu.log`).

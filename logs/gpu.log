@@ -707,3 +707,11 @@
 2026-09-28 04:05:59 cship-playcg8 rc=0 ms=15041 load=6.86 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_HW=1 PLAY_W=640 PLAY_H=360 PLAY_U=0 PLAY_SHOT=/tmp/claude-1000/-home-costamatheus97-vt-brainstorm-ai-bend2-hip/da5577c9-5150-4697-88b6-9b24e8da3ac3/scratchpad/g.ppm build/playcg8 --threads 16
 2026-09-28 04:06:24 cship-playc5 rc=0 ms=15086 load=6.73 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_HW=1 PLAY_W=640 PLAY_H=360 PLAY_U=0 PLAY_SHOT=/tmp/claude-1000/-home-costamatheus97-vt-brainstorm-ai-bend2-hip/da5577c9-5150-4697-88b6-9b24e8da3ac3/scratchpad/g5.ppm build/playc5 --threads 16
 2026-09-28 04:06:40 cship-playcg8 rc=0 ms=15038 load=7.97 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_HW=1 PLAY_W=640 PLAY_H=360 PLAY_U=0 PLAY_SHOT=/tmp/claude-1000/-home-costamatheus97-vt-brainstorm-ai-bend2-hip/da5577c9-5150-4697-88b6-9b24e8da3ac3/scratchpad/g8.ppm build/playcg8 --threads 16
+2026-09-28 04:11:00 cship-playc5 rc=0 ms=15085 load=0.16 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_HW=1 PLAY_W=640 PLAY_H=360 PLAY_U=0 PLAY_SKIP=3 build/playc5 --threads 16
+2026-09-28 04:11:15 cship-playc5 rc=0 ms=15334 load=1.44 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_HW=1 PLAY_W=640 PLAY_H=360 PLAY_U=0 PLAY_SKIP=2 build/playc5 --threads 16
+2026-09-28 04:11:31 cship-playc5 rc=0 ms=15067 load=4.19 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_HW=1 PLAY_W=640 PLAY_H=360 PLAY_U=0 PLAY_SKIP=3 build/playc5 --threads 16
+2026-09-28 04:11:46 cship-playc5 rc=0 ms=15374 load=3.77 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_HW=1 PLAY_W=640 PLAY_H=360 PLAY_U=0 PLAY_SKIP=2 build/playc5 --threads 16
+2026-09-28 04:12:02 cship-playc5 rc=0 ms=15077 load=4.62 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_HW=1 PLAY_W=640 PLAY_H=360 PLAY_U=0 PLAY_SKIP=3 build/playc5 --threads 16
+2026-09-28 04:12:18 cship-playc5 rc=0 ms=15373 load=5.02 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_HW=1 PLAY_W=640 PLAY_H=360 PLAY_U=0 PLAY_SKIP=2 build/playc5 --threads 16
+2026-09-28 04:12:44 tail-log rc=0 ms=15078 load=4.84 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_HW=1 PLAY_W=640 PLAY_H=360 PLAY_U=0 PLAY_LOG=1 build/playc5 --threads 16
+2026-09-28 04:13:52 tail4k rc=0 ms=17027 load=2.12 drv=0 | PLAY_DEMO=1 PLAY_N=900 PLAY_HW=1 PLAY_W=3840 PLAY_H=2160 PLAY_U=1 PLAY_LOG=1 build/playp --threads 16 --gpu 3GB
