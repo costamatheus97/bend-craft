@@ -8,8 +8,11 @@ threads, and the GPU.
 
 This is a community project. It is not part of Bend and is not maintained by
 the Bend authors. It is not affiliated with, endorsed by or connected to
-Mojang or Minecraft; it only borrows the idea of a block world. Nothing has
-been published anywhere.
+Mojang or Minecraft; it only borrows the idea of a block world.
+
+![The scripted walk, CPU lane, 640x360](media/walk.gif)
+
+![A shore at sunset, tier 3](media/sun-shore.png)
 
 - `world.bend`: the world as one flat `Array<U32>` (a byte a block, four per
   word along y, chunks of 16 x 16 columns) and its terrain: a height map, then
@@ -39,7 +42,7 @@ Nothing reads a clock or a device except `play.bend` and the benches.
 ## Play
 
 ```
-bend play.bend -o play && ./play                   # checked with upstream main 574b6d39 (2.0.29)
+bend play.bend -o play && ./play                   # checked with upstream main ef66a7cc (after 2.0.32)
 PLAY_W=1920 PLAY_H=1080 PLAY_U=1 ./play            # render 960x540, show it at 1080p
 ```
 
@@ -62,6 +65,8 @@ Settings are environment variables. They are listed at the top of
   samples, and each sample is shown as a 2^U-pixel square.
 - `PLAY_TIER` (3) and `PLAY_VD` (48): the shading tier and the view distance
   in blocks. Tier 3 at 48 is the default and what every number below uses.
+
+  ![Tiers 0 to 3: flat colours, textures, ambient occlusion, shadows](media/tiers.png)
 - `PLAY_SKIP`: shortcuts that keep the frames identical. Bit 0: empty-space skipping over the
   occupancy words. Bit 1: the sun table (a shadow ray that starts above its column's height is
   lit without a walk). The default is 3 on the CPU and 0 on the GPU, where neither helped (bit 1
@@ -192,33 +197,65 @@ of the scripted walk, in 3 rounds or more. Every round must meet all of these:
 `OPTIMIZATIONS.md` logs every attempt, including the ones that didn't work.
 For each it gives the expected gain, the measured gain and the commit.
 
-GPU lane, RX 7800 XT, tier 3, view distance 48 (busy in ms, the range over the rounds):
+Every resolution on both lanes, tier 3, view distance 48, the scripted walk in the real window:
 
-| Rung | Samples | busy p95 | busy p99 |
-|-|-|-|-|
-| 720p | 1280x720 | 12.5 | 13.1 |
-| 1080p up2 | 960x540 | 9.5-9.6 | 10.0-10.1 |
-| 1080p | 1920x1080 | 14.6-14.9 | 15.3-15.9 |
-| 1440p up2 | 1280x720 | 13.7-13.9 | 14.4-14.6 |
-| 4K up4 | 960x540 | 11.4-11.5 | 12.1-12.2 |
+- **fps** is how many frames a second the frame's work allows (1000 / the median busy time). A
+  paced game shows 60; above 60 it is headroom, and below 60 it is the frame rate you get.
+- **1% low** is 1000 / busy p99 (the worst round).
+- **60 fps** is the ladder's verdict. A plain yes passed in 3 rounds or more; yes\* passed in the 2
+  rounds of the all-resolutions sweep and has fewer samples than a rung that passed in 3.
 
-Not reached: 4K up2 (p95 16.5-16.6 passes, p99 17.3-17.9 does not) and 1440p native (p95
-21.3-21.6). Both are held by the render kernel. A prototype of an upstream compiler change (the
-array's location read once per ray, not once per voxel) takes 4K up2 to p95 15.1-15.4 / p99
-16.0-16.2, which passes; see `OPTIMIZATIONS.md`.
+upN means each sample is N x N pixels (the X server scales it up). The numbers come from
+`logs/res-sweep.txt` (2026-09-28); the 3-round rungs are in `OPTIMIZATIONS.md`.
 
-CPU lane, 16 threads (Ryzen 7 5800XT), same settings:
+GPU lane, RX 7800 XT (the fork runtime f81948eb, CUDA over HIP):
 
-| Rung | Samples | busy p95 | busy p99 |
-|-|-|-|-|
-| 320x180 | 320x180 | 5.5-5.6 | 5.9-6.0 |
-| 720p up4 | 320x180 | 5.6-5.7 | 6.0 |
-| 1080p up4 | 480x270 | 10.6-10.7 | 11.2-11.3 |
+| Resolution | Samples | fps | 1% low | busy p95 (ms) | 60 fps |
+|-|-|-|-|-|-|
+| 320x180 | 320x180 | 236 | 159 | 4.9-5.1 | yes\* |
+| 640x360 | 640x360 | 177 | 144 | 6.3-6.5 | yes\* |
+| 720p up4 | 320x180 | 225 | 173 | 5.1-5.3 | yes\* |
+| 720p up2 | 640x360 | 169 | 121 | 6.6-7.5 | yes\* |
+| 720p | 1280x720 | 94 | 63 | 12.5-12.7 | yes |
+| 1080p up4 | 480x270 | 202 | 156 | 5.8 | yes\* |
+| 1080p up2 | 960x540 | 120 | 102 | 9.2-9.4 | yes |
+| 1080p | 1920x1080 | 78 | 64 | 14.5-14.6 | yes |
+| 1440p up4 | 640x360 | 167 | 130 | 7.0-7.2 | yes\* |
+| 1440p up2 | 1280x720 | 85 | 68 | 13.4-13.7 | yes |
+| 1440p | 2560x1440 | 54 | 46 | 21.2 | no |
+| 4K up4 | 960x540 | 110 | 90 | 10.6 | yes |
+| 4K up2 | 1920x1080 | 74 | 60 | 15.7 | no (p99 at the limit) |
+| 4K | 3840x2160 | 24 | 21 | 46.2 | no |
 
-Not reached: 640x360 (p95 16.6-16.9 passes, p99 17.7-18.3 does not). A prototype of an upstream
-change to the CPU pool (the frontier grown to 8 units a worker, not 1, so a worker that lands on a
-shared core does not hold up the frame) passes it in every round (p95 15.3-15.4, p99 15.9-16.3);
-see `OPTIMIZATIONS.md` 31, which also has the measurements behind the pool's scaling.
+4K up2 is right at the limit. p95 passes, and p99 was 16.7 in the sweep's round and 17.3-17.9 in the
+ladder's rounds. A prototype of an upstream compiler change (the array's location read once per ray,
+not once per voxel) takes it to p95 15.1-15.4 / p99 16.0-16.2, which passes; see `OPTIMIZATIONS.md`.
+1440p native is held by the render kernel.
+
+CPU lane, Ryzen 7 5800XT, 16 threads (upstream main ef66a7cc, no GPU code):
+
+| Resolution | Samples | fps | 1% low | busy p95 (ms) | 60 fps |
+|-|-|-|-|-|-|
+| 320x180 | 320x180 | 218 | 179 | 5.2-5.4 | yes |
+| 640x360 | 640x360 | 70 | 50 | 17.1-18.6 | no (close) |
+| 720p up4 | 320x180 | 211 | 170 | 5.5-5.6 | yes |
+| 720p up2 | 640x360 | 67 | 44 | 18.3-19.5 | no |
+| 720p | 1280x720 | 19 | 15 | 60.7-61.5 | no |
+| 1080p up4 | 480x270 | 114 | 89 | 10.3 | yes |
+| 1080p up2 | 960x540 | 32 | 25 | 36.0-36.6 | no |
+| 1080p | 1920x1080 | 9 | 7 | 126-131 | no |
+| 1440p up4 | 640x360 | 66 | 48 | 18.0-19.2 | no |
+| 1440p up2 | 1280x720 | 19 | 14 | 63-66 | no |
+| 1440p | 2560x1440 | 5 | 4 | 206-215 | no |
+| 4K up4 | 960x540 | 31 | 25 | 37.6 | no |
+| 4K up2 | 1920x1080 | 9 | 8 | 124 | no |
+| 4K | 3840x2160 | 2 | 2 | 467 | no |
+
+640x360, and every rung with the same 640x360 samples, is close. Its p95 passes in some rounds,
+and its p99 is 0.5-3.5 ms over (17.2-20.2 across the sessions). A prototype of an upstream change to the CPU pool (the frontier grown
+to 8 units a worker, not 1, so a worker that lands on a shared core does not hold up the frame)
+takes about 20% off every CPU rung. With it, 640x360 passes in 3 of 5 rounds (p99 16.0-19.3); see
+`OPTIMIZATIONS.md` 31 and 35.
 
 `OPTIMIZATIONS.md` has every attempt and the rounds behind each number. The run log, with
 terrain and render sweeps, is `LOG.md`. Screenshots are in `media/`.

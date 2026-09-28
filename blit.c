@@ -17,7 +17,7 @@
 // window_fill does. Off Linux (the Mac's Objective-C build, or no X11) this file is a stub and
 // Blit.ok (blit_ok.c) answers 0, so play.bend shows frames with Window.frame instead.
 //
-// PLAY_NOPACE=1 skips the pace. PLAY_SHOT=path writes the window's last frame (P6) at exit. PLAY_HW=1 prints at exit the same "HW" lines as
+// PLAY_NOPACE=1 skips the pace. PLAY_SHOT=path writes the window's last frame (P6) at exit; PLAY_REC=dir every other frame. PLAY_HW=1 prints at exit the same "HW" lines as
 // tools/hw.c (fill, frame interval, and on a display present / busy / missed, and the put), for
 // tools/pp.py. A window without a display (tools/hw_patch.py's offscreen window_open) skips the
 // pump, the pace and the blit.
@@ -429,8 +429,7 @@ static u32* bc_shot;
 static u32  bc_sw, bc_sh;
 static bool bc_shot_on;
 
-static void bc_shot_write(void) {
-  const char* path = getenv("PLAY_SHOT");
+static void bc_ppm(const char* path) {
   FILE* fp = path != NULL && bc_shot != NULL ? fopen(path, "wb") : NULL;
   if (fp == NULL) {
     return;
@@ -441,6 +440,24 @@ static void bc_shot_write(void) {
     fwrite(px, 1, 3, fp);
   }
   fclose(fp);
+}
+
+static void bc_shot_write(void) {
+  bc_ppm(getenv("PLAY_SHOT"));
+}
+
+// PLAY_REC=dir (for the README's clips): every PLAY_REC_EVERY-th [2] frame shown, as dir/f00000.ppm
+// on. Slow (a P6 a frame); with PLAY_DEMO=1 and PLAY_NOPACE=1 the frames are the same at any speed.
+static const char* bc_rec;
+static u32         bc_rec_every, bc_rec_n;
+
+static void bc_rec_frame(void) {
+  if (bc_rec_n % bc_rec_every == 0) {
+    char path[4096];
+    snprintf(path, sizeof path, "%s/f%05u.ppm", bc_rec, bc_rec_n / bc_rec_every);
+    bc_ppm(path);
+  }
+  bc_rec_n += 1;
 }
 
 // PLAY_SHOT_SERVER=path (a check, slow): the window's pixels read back from the server after
@@ -700,7 +717,10 @@ static Term bc_frame(Env e, BcWin* win, Term fb, u32 ws, u32 hs, u32 u) {
     if (bc_srv_on) {
       atexit(bc_srv_write);
     }
-    bc_shot_on = getenv("PLAY_SHOT") != NULL || bc_srv_on;
+    bc_rec = getenv("PLAY_REC");
+    const char* ev = getenv("PLAY_REC_EVERY");
+    bc_rec_every = ev != NULL && atoi(ev) > 0 ? (u32)atoi(ev) : 2;
+    bc_shot_on = getenv("PLAY_SHOT") != NULL || bc_srv_on || bc_rec != NULL;
     if (bc_shot_on) {
       atexit(bc_shot_write);
     }
@@ -792,6 +812,9 @@ static Term bc_frame(Env e, BcWin* win, Term fb, u32 ws, u32 hs, u32 u) {
     }
     bc_sw = w;
     bc_sh = h;
+    if (bc_rec != NULL) {
+      bc_rec_frame();
+    }
   }
   if (bc_srv_on && win->dpy != NULL) {   // PLAY_SHOT_SERVER: the server's pixels of the window
     XImage* g = XGetImage(win->dpy, win->win, 0, 0, w, h, AllPlanes, ZPixmap);
