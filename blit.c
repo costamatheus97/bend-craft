@@ -12,13 +12,16 @@
 // It reads the runtime's window block (BendWin, the same block window_open.c, window_frame.c and
 // window_close.c share under the BendWin guard) and, on the GPU lane, the device heap and the
 // twin's chunk states (gpu_vram, gpu_twin, gpu_state, io_gpu): a package effect that leans on
-// those internals.
+// those internals. The twin path compiles only where the runtime has the twin heap (GPU_DIRTY
+// defined: the CUDA-over-HIP tree); a CUDA runtime without it reads e.mem, as upstream's
+// window_fill does. Off Linux (the Mac's Objective-C build, or no X11) this file is a stub and
+// Blit.ok (blit_ok.c) answers 0, so play.bend shows frames with Window.frame instead.
 //
 // PLAY_NOPACE=1 skips the pace. PLAY_SHOT=path writes the window's last frame (P6) at exit. PLAY_HW=1 prints at exit the same "HW" lines as
 // tools/hw.c (fill, frame interval, and on a display present / busy / missed, and the put), for
 // tools/pp.py. A window without a display (tools/hw_patch.py's offscreen window_open) skips the
 // pump, the pace and the blit.
-#if defined(__linux__)
+#if defined(__linux__) && !defined(__OBJC__)   // X11, as window_open.c (the Mac build is Objective-C)
 
 #ifndef BendWin
 #define BendWin BendWin
@@ -272,7 +275,7 @@ static void bc_scale(u32* pix, u32 w, u32 h, const u32* src, u32 ws, u32 u) {
   }
 }
 
-#if BEND_CUDA
+#if BEND_CUDA && defined(GPU_DIRTY)   // the twin heap (the HIP lane's runtime, #1078)
 // Whether the host wrote any of the corpus bytes [lo, hi) since the device last had them (a
 // twin chunk in GPU_DIRTY): then they go up first (gpu_sync, as window_fill always does, 0.6 ms
 // a frame at 720p). The frame the bang just wrote is on the device and its chunks are not dirty,
@@ -290,7 +293,7 @@ static bool bc_dirty(u64 lo, u64 hi) {
 }
 #endif
 
-#if BEND_CUDA
+#if BEND_CUDA && defined(GPU_DIRTY)   // the twin heap (the HIP lane's runtime, #1078)
 // Page-locks a host buffer the device copies into (the shared-memory image, or the upscale's
 // staging buffer), so cuMemcpyDtoH writes it directly rather than through a pageable bounce.
 // Only buffers blit.c owns and never frees; a refusal (or PLAY_PIN=0) leaves it pageable.
@@ -316,7 +319,7 @@ static bool bc_pin(void* p, size_t n) {
 
 static void bc_fill(Env e, u32* pix, u32 w, u32 h, Term fb, u32 ws, u32 hs, u32 u, bool own) {
   u64 loc = blk_loc(e.mem, fb);
-#if BEND_CUDA
+#if BEND_CUDA && defined(GPU_DIRTY)   // the twin heap (the HIP lane's runtime, #1078)
   if (io_gpu && gpu_twin) {
     if (bc_dirty(loc * 8, loc * 8 + (u64)ws * hs * 4)) {
       gpu_sync(true);

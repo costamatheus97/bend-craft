@@ -8,7 +8,7 @@
 # (0 flat, 1 textures, 2 + occlusion, 3 + shadows); PLAY_VD [48] view distance (blocks);
 # PLAY_D [14] fork depth; PLAY_SEED [1]; PLAY_X, PLAY_Z [150, 100] the spawn column; PLAY_N
 # [0: until quit] frames; PLAY_DEMO [0] (1: a scripted walk instead of the keyboard and mouse,
-# one tick a frame: a reproducible run for the benchmark); PLAY_MODE [2] (0: render straight
+# one tick a frame: a reproducible run for the benchmark); PLAY_MODE [2, or 1 where Blit.ok is 0: off Linux, JS] (0: render straight
 # into the window Image; 1: into a framebuffer, then convert it, in the same bang; 2: into a
 # framebuffer only, shown by blit.c's Blit.frame, no Image at all);
 # PLAY_PPM [none] the last frame's samples there (P6; modes 1 and 2: mode 0 keeps no framebuffer); PLAY_LOG [0] (1: one line a frame: sim, render (the one bang: the render
@@ -149,6 +149,11 @@ def quit(+inp: In.Input) -> Bool:
 type Sh is Type:
   Sh{win: Window, fb: Array<U32>, img: Image, evs: List<Event>}
 
+# 1 where Blit.frame shows frames (Linux, X11), else 0: the default mode is then 1 (Window.frame).
+def Blit.ok() -> IO(U32):
+  import "./blit_ok.c"
+  import "./blit_ok.js"
+
 def Blit.frame(window: Window, fb: Array<U32>, ws: U32, hs: U32, u: U32) ->
   IO(Window & Array<U32> & List<Event>):
   import "./blit.c"
@@ -233,11 +238,12 @@ def main() -> IO(Unit):
     +n : U32 <- num("PLAY_N", 0)
     +demo : U32 <- num("PLAY_DEMO", 0)
     +log : U32 <- num("PLAY_LOG", 0)
-    +mode : U32 <- num("PLAY_MODE", 2)
+    +ok : U32 <- Blit.ok()
+    +mode : U32 <- num("PLAY_MODE", Fx.sel((ok > 0 : U32), 2, 1))
     +ws : U32 = U32.shrn((w + U32.shln(1, U32.to_nat(u)) - 1 : U32), U32.to_nat(u))
     +hs : U32 = U32.shrn((h + U32.shln(1, U32.to_nat(u)) - 1 : U32), U32.to_nat(u))
     +k : Nat = Nat.sub(U32.log2((Fx.sel((w > h : U32), w, h) * 2 - 1 : U32)), Nat.add(U32.to_nat(u), 4n))
     Unit <- IO.print("play " ++ U32.show(w) ++ "x" ++ U32.show(h) ++ " samples " ++ U32.show(ws) ++ "x"
-      ++ U32.show(hs) ++ " tier " ++ U32.show(tier) ++ " vd " ++ U32.show(vd) ++ " k " ++ Nat.show(k))
+      ++ U32.show(hs) ++ " tier " ++ U32.show(tier) ++ " vd " ++ U32.show(vd) ++ " k " ++ Nat.show(k) ++ " mode " ++ U32.show(mode))
     start(Cfg{G.View{ws, hs, tier, vd, 7000, 34960, mode}, U32.to_nat(d), k, u, demo, log},
       Fx.sel(U32.is_eq(n, 0), 2147483647, n), w, h, G.new(4n, seed, x, z))
