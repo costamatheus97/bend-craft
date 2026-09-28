@@ -106,10 +106,23 @@ def cam.ui(+c: Cam, +h: U32, +x: U32, +y: U32, +z: U32) -> Cam:
   Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, h, x, y, z, lc, skp}
 
 # c with empty-space skipping on (1) or off (0): the same frame either way;
-# it pays on the CPU, not on the GPU (see go.s).
+# it pays on the CPU, not on the GPU (see go.s). skp's bit 0.
 def cam.skip(+c: Cam, +on: U32) -> Cam:
   Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc, skp} = c
-  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc, on}
+  +k = U32.or(U32.and(skp, 4294967294), U32.and(on, 1))
+  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc, k}
+
+# c's world size.
+def cam.lc(+c: Cam) -> Nat:
+  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc, skp} = c
+  lc
+
+# c with the sun table on (1: the world's table matches this sun; see
+# sun.ensure) or off: skp's bit 1. The same frame either way.
+def cam.sun(+c: Cam, +on: U32) -> Cam:
+  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc, skp} = c
+  +k = U32.or(U32.and(skp, 4294967293), U32.shln(U32.and(on, 1), 1n))
+  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc, k}
 
 # The hotbar's blocks: grass, dirt, stone, cobble, planks, log, brick, glass, sand.
 def hot.blk(+i: U32) -> U32:
@@ -489,7 +502,7 @@ def tmx(+o: U32, +d: U32, +dd: U32) -> U32:
 def step(+d: U32) -> U32:
   Fx.sel(Fx.isneg(d), 4294967295, 1)
 
-# The ray from o (16.16, inside the world or not) along d; skp 1: go.s.
+# The ray from o (16.16, inside the world or not) along d; skp bit 0: go.s.
 def cast.go(skp: Bool, w: Array<U32>, +x: U32, +y: U32, +z: U32, +out: Bool, +ox: U32, +oy: U32,
   +oz: U32, +dx: U32, +dy: U32, +dz: U32, +ddx: U32, +ddy: U32, +ddz: U32, +tmax: U32, +vd: U32,
   +side: U32, +lc: Nat) -> Array<U32> & Hit:
@@ -515,7 +528,7 @@ def cast(w: Array<U32>, +ox: U32, +oy: U32, +oz: U32, +dx: U32, +dy: U32, +dz: U
   +ddy = ddt(Fx.abs(dy))
   +ddz = ddt(Fx.abs(dz))
   +out = ((x >= side) || (y >= 64) || (z >= side) : U32)
-  cast.go(U32.is_ne(skp, 0), w, x, y, z, out, ox, oy, oz, dx, dy, dz, ddx, ddy, ddz, tmax, vd, side,
+  cast.go(U32.is_ne(U32.and(skp, 1), 0), w, x, y, z, out, ox, oy, oz, dx, dy, dz, ddx, ddy, ddz, tmax, vd, side,
     lc)
 
 # Shading
@@ -667,6 +680,33 @@ def sh.fin(r: Array<U32> & Hit) -> Array<U32> & U32:
   Hit{b, f, t, x, y, z, wt} = h
   (w, Fx.sel(U32.is_eq(b, 0), sh.lit(), sh.dark()))
 
+def sh.cast(+c: Cam, +px: U32, +py: U32, +pz: U32, w: Array<U32>) -> Array<U32> & U32:
+  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc, skp} = c
+  sh.fin(cast(w, px, py, pz, lx, ly, lz, 98304, 24, lc, skp))
+
+def sh.lit.if(lit: Bool, +c: Cam, +px: U32, +py: U32, +pz: U32, w: Array<U32>) -> Array<U32> & U32:
+  match lit:
+    case True{}:
+      (w, sh.lit())
+    case False{}:
+      sh.cast(c, px, py, pz, w)
+
+def sh.e(+c: Cam, +px: U32, +py: U32, +pz: U32, r: Array<U32> & U32) -> Array<U32> & U32:
+  (w, +e) = r
+  sh.lit.if((U32.shrn(py, 16n) >= e : U32), c, px, py, pz, w)
+
+# The shadow ray, or none when the sun table says the start is above
+# everything within its reach (W's sun table: then the ray would meet
+# nothing, so the result is the same).
+def sh.tab(on: Bool, +c: Cam, +px: U32, +py: U32, +pz: U32, +x: U32, +z: U32, w: Array<U32>) ->
+  Array<U32> & U32:
+  match on:
+    case True{}:
+      Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc, skp} = c
+      sh.e(c, px, py, pz, w[(W.sun.e(lc) + W.col(lc, x, z) : U32)])
+    case False{}:
+      sh.cast(c, px, py, pz, w)
+
 def sh.if(on: Bool, facing: Bool, +c: Cam, +px: U32, +py: U32, +pz: U32, w: Array<U32>) ->
   Array<U32> & U32:
   match on facing:
@@ -676,7 +716,10 @@ def sh.if(on: Bool, facing: Bool, +c: Cam, +px: U32, +py: U32, +pz: U32, w: Arra
       (w, sh.dark())
     case True{} True{}:
       Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc, skp} = c
-      sh.fin(cast(w, px, py, pz, lx, ly, lz, 98304, 24, lc, skp))
+      +x = U32.shrn(px, 16n)
+      +z = U32.shrn(pz, 16n)
+      +s = W.side(lc)
+      sh.tab((U32.is_ne(U32.and(skp, 2), 0) && ((x < s) && (z < s) : U32)), c, px, py, pz, x, z, w)
 
 # Whether face f looks toward the sun (the normal's component of l > 0).
 def facing(+f: U32, +lx: U32, +ly: U32, +lz: U32) -> Bool:
@@ -1123,3 +1166,231 @@ def ppm.head(+ws: U32, +hs: U32, r: Array<U32> & List<&2, U32>) -> Array<U32> & 
 def ppm(+ws: U32, +hs: U32, fb: Array<U32>) -> Array<U32> & List<&2, U32>:
   +n = (ws * hs - 1 : U32)
   ppm.head(ws, hs, ppm.go(U32.to_nat(n), Nil{}, fb[n]))
+
+# The sun table (world.bend's)
+# ----------------------------
+# Built for one sun l from the world's columns: first each column's top,
+# then each column's e, the most any column in its corridor rises above
+# the climb a ray needs to get there. A shadow ray from a start in
+# column c (x, z in [c, c + 1)) toward l goes at most 24 blocks (24.5
+# with slack for the fixed point), so the columns it can enter lie within
+# 1.6 blocks (the two columns' diagonal, sqrt 2, and slack) of the
+# segment from c along 24.5 (lx, lz); by column c + o it has gone at least
+# |o| - 1.6 across, so it has climbed at least that times ly / |(lx, lz)|
+# (q, rounded down, less 1/4 for the fixed point). A column whose top is
+# t (air from t up) can stop it only if its start y is below t - q; so a
+# start y >= e(c) = max over the corridor of t - q meets nothing.
+
+def isq.go(n: Nat, +v: U32, +r: U32, +b: U32) -> U32:
+  match n:
+    case 0n:
+      r
+    case 1n+p:
+      +t = (r + b : U32)
+      +ok = (v >= t : U32)
+      isq.go(p, Fx.sel(ok, (v - t : U32), v), Fx.sel(ok, (U32.shrn(r, 1n) + b : U32), U32.shrn(r, 1n)),
+        U32.shrn(b, 2n))
+
+# floor(sqrt(v)).
+def isq(+v: U32) -> U32:
+  isq.go(16n, v, 0, 1073741824)
+
+# Candidate i of the 55 x 55 offsets (dx, dz in -27 .. 27): its packed
+# entry when it is in the corridor, else 0. In 8.8 fixed point.
+def sun.cand(+i: U32, +lx: U32, +ly: U32, +lz: U32) -> U32:
+  +iz = U32.div(i, 55)
+  +ix = (i - iz * 55 : U32)
+  +px = U32.shln((ix - 27 : U32), 8n)
+  +pz = U32.shln((iz - 27 : U32), 8n)
+  +dx = Fx.asr((lx * 49 : U32), 9n)
+  +dz = Fx.asr((lz * 49 : U32), 9n)
+  +dd = (dx * dx + dz * dz : U32)
+  +dot = (px * dx + pz * dz : U32)
+  +pp = isq((px * px + pz * pz : U32))
+  +ex = (px - dx : U32)
+  +ez = (pz - dz : U32)
+  +pe = isq((ex * ex + ez * ez : U32))
+  +dl = isq(dd)
+  +mid = U32.div(Fx.abs((px * dz - pz * dx : U32)), Fx.sel(U32.is_eq(dl, 0), 1, dl))
+  +dist = Fx.sel((Fx.isneg(dot) || U32.is_eq(dot, 0)), pp, Fx.sel((dot >= dd : U32), pe, mid))
+  +r8 = Fx.sel((pp > 410 : U32), (pp - 410 : U32), 0)
+  +hx = Fx.asr(lx, 4n)
+  +hz = Fx.asr(lz, 4n)
+  +h12 = isq((hx * hx + hz * hz : U32))
+  +t8 = Fx.sel(U32.is_eq(h12, 0), 65536, U32.div(U32.shln(Fx.asr(ly, 4n), 8n), h12))
+  +tn = Fx.sel((t8 > 65536 : U32), 65536, t8)
+  +rise = U32.shrn((r8 * tn : U32), 8n)
+  +q = Fx.sel((rise > 64 : U32), U32.shrn((rise - 64 : U32), 8n), 0)
+  Fx.sel((dist <= 410 : U32), U32.or(U32.or((ix + 101 : U32), U32.shln((iz + 101 : U32), 8n)),
+    U32.shln(q, 16n)), 0)
+
+def sun.wr(+i: U32, +v: U32, w: Array<U32>) -> Array<U32>:
+  w[i] <- v
+
+def sun.wr.if(on: Bool, +i: U32, +v: U32, w: Array<U32>) -> Array<U32>:
+  match on:
+    case True{}:
+      w[i] <- v
+    case False{}:
+      w
+
+# The corridor's offsets into the table: (w, their count).
+def sun.l.go(k: Nat, +i: U32, +n: U32, +lc: Nat, +lx: U32, +ly: U32, +lz: U32, w: Array<U32>) ->
+  Array<U32> & U32:
+  match k:
+    case 0n:
+      (w, n)
+    case 1n+p:
+      +e = sun.cand(i, lx, ly, lz)
+      +ok = U32.is_ne(e, 0) && (n < 1024 : U32)
+      sun.l.go(p, (i + 1 : U32), (n + Fx.b2u(ok) : U32), lc, lx, ly, lz,
+        sun.wr.if(ok, (W.sun.off(lc) + n : U32), e, w))
+
+# A column's top: 4 j + the highest non-air byte of word j, for its
+# highest non-zero word j (0: all air). r: word n's read.
+def ct.hb(+wd: U32) -> U32:
+  Fx.sel(U32.is_ne(U32.shrn(wd, 24n), 0), 4, Fx.sel(U32.is_ne(U32.shrn(wd, 16n), 0), 3,
+    Fx.sel(U32.is_ne(U32.shrn(wd, 8n), 0), 2, Fx.sel(U32.is_ne(wd, 0), 1, 0))))
+
+def ct.go(n: Nat, +base: U32, +m: U32, r: Array<U32> & U32) -> Array<U32> & U32:
+  match n:
+    case 0n:
+      (w, +wd) = r
+      (w, W.sun.max(m, ct.hb(wd)))
+    case 1n++p:
+      (w, +wd) = r
+      +v = Fx.sel(U32.is_ne(wd, 0), (U32.shln((U32.from_nat(p) + 1 : U32), 2n) + ct.hb(wd) : U32), 0)
+      ct.go(p, base, W.sun.max(m, v), w[(base + U32.from_nat(p) : U32)])
+
+def sun.put(+i: U32, r: Array<U32> & U32) -> Array<U32>:
+  (w, +v) = r
+  w[i] <- v
+
+def p1.col(+lc: Nat, +c: U32, w: Array<U32>) -> Array<U32>:
+  +b = U32.shln(c, 4n)
+  sun.put((W.sun.top(lc) + c : U32), ct.go(15n, b, 0, w[(b + 15 : U32)]))
+
+def p1.cols(n: Nat, +lc: Nat, +c: U32, w: Array<U32>) -> Array<U32>:
+  match n:
+    case 0n:
+      p1.col(lc, c, w)
+    case 1n+q:
+      p1.cols(q, lc, (c + 1 : U32), p1.col(lc, c, w))
+
+def p1.leaf.if(e: Bool, +lc: Nat, +c: U32, +c1: U32, w: Array<U32>) -> Array<U32>:
+  match e:
+    case True{}:
+      w
+    case False{}:
+      p1.cols(U32.to_nat((c1 - c - 1 : U32)), lc, c, w)
+
+@unsafe
+def p1.node(+d: Nat, +lc: Nat, +c: U32, +c1: U32, +w: Array<U32>) -> Array<U32>:
+  match d:
+    case 0n:
+      p1.leaf.if((c >= c1 : U32), lc, c, c1, w)
+    case 1n+e:
+      +m = U32.shrn((c + c1 : U32), 1n)
+      a b = p1.node(e, lc, c, m, w) p1.node(e, lc, m, c1, w)
+      Array.join(U32, a, b)
+
+def p2.v(+q: U32, +m: U32, r: Array<U32> & U32) -> Array<U32> & U32:
+  (w, +t) = r
+  (w, W.sun.max(m, Fx.sel((t > q : U32), (t - q : U32), 0)))
+
+def p2.t(on: Bool, +lc: Nat, +x2: U32, +z2: U32, +q: U32, +m: U32, w: Array<U32>) -> Array<U32> & U32:
+  match on:
+    case True{}:
+      p2.v(q, m, w[(W.sun.top(lc) + W.col(lc, x2, z2) : U32)])
+    case False{}:
+      (w, m)
+
+def p2.o(+lc: Nat, +x: U32, +z: U32, +m: U32, r: Array<U32> & U32) -> Array<U32> & U32:
+  (w, +o) = r
+  +x2 = (x + U32.and(o, 255) - 128 : U32)
+  +z2 = (z + U32.and(U32.shrn(o, 8n), 255) - 128 : U32)
+  +s = W.side(lc)
+  p2.t(((x2 < s) && (z2 < s) : U32), lc, x2, z2, U32.shrn(o, 16n), m, w)
+
+def p2.go(n: Nat, +lc: Nat, +x: U32, +z: U32, r: Array<U32> & U32) -> Array<U32> & U32:
+  match n:
+    case 0n:
+      r
+    case 1n++p:
+      (w, +m) = r
+      p2.go(p, lc, x, z, p2.o(lc, x, z, m, w[(W.sun.off(lc) + U32.from_nat(p) : U32)]))
+
+def p2.col(+n: Nat, +lc: Nat, +c: U32, w: Array<U32>) -> Array<U32>:
+  sun.put((W.sun.e(lc) + c : U32), p2.go(n, lc, W.cx(lc, c), W.cz(lc, c), (w, 0)))
+
+def p2.cols(k: Nat, +n: Nat, +lc: Nat, +c: U32, w: Array<U32>) -> Array<U32>:
+  match k:
+    case 0n:
+      p2.col(n, lc, c, w)
+    case 1n+q:
+      p2.cols(q, n, lc, (c + 1 : U32), p2.col(n, lc, c, w))
+
+def p2.leaf.if(e: Bool, +n: Nat, +lc: Nat, +c: U32, +c1: U32, w: Array<U32>) -> Array<U32>:
+  match e:
+    case True{}:
+      w
+    case False{}:
+      p2.cols(U32.to_nat((c1 - c - 1 : U32)), n, lc, c, w)
+
+@unsafe
+def p2.node(+d: Nat, +n: Nat, +lc: Nat, +c: U32, +c1: U32, +w: Array<U32>) -> Array<U32>:
+  match d:
+    case 0n:
+      p2.leaf.if((c >= c1 : U32), n, lc, c, c1, w)
+    case 1n+e:
+      +m = U32.shrn((c + c1 : U32), 1n)
+      a b = p2.node(e, n, lc, c, m, w) p2.node(e, n, lc, m, c1, w)
+      Array.join(U32, a, b)
+
+def sun.b.n(+d: Nat, +lc: Nat, +lx: U32, +ly: U32, +lz: U32, r: Array<U32> & U32) -> Array<U32>:
+  (w, +n) = r
+  +k = W.sun.key(lc)
+  +cols = U32.shln(1, W.lcols(lc))
+  sun.wr((k + 3 : U32), n, sun.wr((k + 2 : U32), lz, sun.wr((k + 1 : U32), ly, sun.wr(k, lx,
+    p2.node(d, U32.to_nat(n), lc, 0, cols, p1.node(d, lc, 0, cols, w))))))
+
+# The table for sun l (ly > 0), 2^d leaves per pass.
+def sun.build(+d: Nat, +lc: Nat, +lx: U32, +ly: U32, +lz: U32, w: Array<U32>) -> Array<U32>:
+  sun.b.n(d, lc, lx, ly, lz, sun.l.go(3025n, 0, 0, lc, lx, ly, lz, w))
+
+def sun.fix.if(same: Bool, +d: Nat, +lc: Nat, +lx: U32, +ly: U32, +lz: U32, w: Array<U32>) ->
+  Array<U32> & U32:
+  match same:
+    case True{}:
+      (w, 1)
+    case False{}:
+      (sun.build(d, lc, lx, ly, lz, w), 1)
+
+def sun.k3(+d: Nat, +lc: Nat, +lx: U32, +ly: U32, +lz: U32, +k0: U32, +k1: U32, r: Array<U32> & U32) ->
+  Array<U32> & U32:
+  (w, +k2) = r
+  sun.fix.if((U32.is_eq(k0, lx) && U32.is_eq(k1, ly) && U32.is_eq(k2, lz)), d, lc, lx, ly, lz, w)
+
+def sun.k2(+d: Nat, +lc: Nat, +lx: U32, +ly: U32, +lz: U32, +k0: U32, r: Array<U32> & U32) ->
+  Array<U32> & U32:
+  (w, +k1) = r
+  sun.k3(d, lc, lx, ly, lz, k0, k1, w[(W.sun.key(lc) + 2 : U32)])
+
+def sun.k1(+d: Nat, +lc: Nat, +lx: U32, +ly: U32, +lz: U32, r: Array<U32> & U32) -> Array<U32> & U32:
+  (w, +k0) = r
+  sun.k2(d, lc, lx, ly, lz, k0, w[(W.sun.key(lc) + 1 : U32)])
+
+def sun.ensure.if(on: Bool, +d: Nat, +lc: Nat, +lx: U32, +ly: U32, +lz: U32, w: Array<U32>) ->
+  Array<U32> & U32:
+  match on:
+    case True{}:
+      sun.k1(d, lc, lx, ly, lz, w[W.sun.key(lc)])
+    case False{}:
+      (w, 0)
+
+# The world with a sun table for c's sun (built, 2^d leaves a pass, when it
+# has none or one for another sun), and whether c may use it (cam.sun):
+# 0 for a sun at or below the horizon, or a world too small for a table.
+def sun.ensure(+c: Cam, +d: Nat, w: Array<U32>) -> Array<U32> & U32:
+  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc, skp} = c
+  sun.ensure.if((W.sun.on(lc) && Bool.not(Fx.isneg(ly)) && U32.is_ne(ly, 0)), d, lc, lx, ly, lz, w)

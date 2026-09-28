@@ -5,7 +5,9 @@
 # - empty-space skipping (cam.skip, the CPU's walk): tiers 0-3 at depth 3 with it on must hash
 #   as the frames without it, and so must a frame looking along the horizon (long empty rays);
 # - the bounds pass: the frame with a counting writer writes every sample exactly once and
-#   nothing past the frame (an index out of range would wrap onto some sample: a 2).
+#   nothing past the frame (an index out of range would wrap onto some sample: a 2);
+# - the sun table: the horizon frame with and without it, before and after towers are set
+#   (after the table is built, so set must keep it: without that the last line differs).
 import Base
 import ../world.bend as W
 import ../render.bend as R
@@ -152,6 +154,49 @@ def hz(+lc: Nat, +ws: U32, +hs: U32, +x: U32, +z: U32, +k: Nat, +sk: U32, +fl: N
   hz.h(sk, R.draw!(~W.Put.set, R.cam.skip(R.cam(U32.shln(x, 16n), 3276800, U32.shln(z, 16n), 8192, 0,
     ws, hs, 64, 3, 6000, 3000, lc), sk), 3n, k, R.tex(lc, w), Array.new(U32, fl, 0), Pix{0}))
 
+# The sun table (world.bend's, for the shadow ray): the horizon frame with
+# and without it, after three stone towers are set into the world (after
+# the table is built, so set must keep it exact) or not.
+def tw.go(n: Nat, +lc: Nat, +x: U32, +z: U32, +y: U32, w: Array<U32>) -> Array<U32>:
+  match n:
+    case 0n:
+      w
+    case 1n+p:
+      tw.go(p, lc, x, z, (y + 1 : U32), W.set(lc, x, y, z, 1, w))
+
+def tw.if(on: Bool, +lc: Nat, w: Array<U32>) -> Array<U32>:
+  match on:
+    case True{}:
+      tw.go(30n, lc, 36, 40, 20, tw.go(30n, lc, 44, 36, 20, tw.go(30n, lc, 30, 34, 20, w)))
+    case False{}:
+      w
+
+def sun.fin(+tab: U32, +tw: U32, r: Array<U32> & U32) -> String:
+  (fb, +h) = r
+  "sun tier 3 table " ++ U32.show(tab) ++ " towers " ++ U32.show(tw) ++ " fb " ++ U32.show(h)
+
+def sun.h(+tab: U32, +tw: U32, p: R.Out) -> String:
+  R.Out{w, fb, img} = p
+  sun.fin(tab, tw, W.hash(fb))
+
+def sun.go(+c: R.Cam, +k: Nat, +tab: U32, +tw: U32, +fl: Nat, r: Array<U32> & U32) -> String:
+  (w, +on) = r
+  sun.h(tab, tw, R.draw!(~W.Put.set, R.cam.sun(c, on), 3n, k,
+    tw.if(U32.is_ne(tw, 0), R.cam.lc(c), w), Array.new(U32, fl, 0), Pix{0}))
+
+def sun.t(on: Bool, +c: R.Cam, w: Array<U32>) -> Array<U32> & U32:
+  match on:
+    case True{}:
+      R.sun.ensure(c, 3n, w)
+    case False{}:
+      (w, 0)
+
+def sun(+lc: Nat, +ws: U32, +hs: U32, +x: U32, +z: U32, +k: Nat, +tab: U32, +tw: U32, +fl: Nat,
+  p: W.P2) -> String:
+  W.P2{hm, w} = p
+  +c = R.cam(U32.shln(x, 16n), 3276800, U32.shln(z, 16n), 8192, 0, ws, hs, 64, 3, 6000, 3000, lc)
+  sun.go(c, k, tab, tw, fl, sun.t(U32.is_ne(tab, 0), c, R.tex(lc, w)))
+
 def main() -> IO(Unit):
   do IO<Unit>:
     IO.print(cfg.p(2n, 64, 36, 20, 12, 8192, 62536, 48, 2n, scene(2n, 1)))
@@ -159,6 +204,10 @@ def main() -> IO(Unit):
     IO.print(same(2n, 64, 36, 20, 12, 2n, 4n, 6n, 12n, scene(2n, 1)))
     IO.print(hz(2n, 64, 36, 20, 12, 2n, 0, 12n, scene(2n, 1)))
     IO.print(hz(2n, 64, 36, 20, 12, 2n, 1, 12n, scene(2n, 1)))
+    IO.print(sun(2n, 64, 36, 20, 12, 2n, 0, 0, 12n, scene(2n, 1)))
+    IO.print(sun(2n, 64, 36, 20, 12, 2n, 1, 0, 12n, scene(2n, 1)))
+    IO.print(sun(2n, 64, 36, 20, 12, 2n, 0, 1, 12n, scene(2n, 1)))
+    IO.print(sun(2n, 64, 36, 20, 12, 2n, 1, 1, 12n, scene(2n, 1)))
 #|render tier 0 d 0 skip 0 fb 2348678706 img 1950189419
 #|render tier 1 d 0 skip 0 fb 913317061 img 4035579857
 #|render tier 2 d 0 skip 0 fb 2772643765 img 3082700560
@@ -173,3 +222,7 @@ def main() -> IO(Unit):
 #|direct tier 3 ui same-picture 1 1148512812
 #|horizon tier 3 skip 0 fb 3284521201
 #|horizon tier 3 skip 1 fb 3284521201
+#|sun tier 3 table 0 towers 0 fb 3284521201
+#|sun tier 3 table 1 towers 0 fb 3284521201
+#|sun tier 3 table 0 towers 1 fb 3959070276
+#|sun tier 3 table 1 towers 1 fb 3959070276

@@ -407,8 +407,9 @@ def show.p(+p: P) -> String:
 # then converted, render.bend's draw: the framebuffer then holds the frame;
 # 2: into the framebuffer only, render.bend's fill, for a window that shows
 # the framebuffer itself (play.bend's Blit.frame): the image stays old),
-# and skip: render.bend's empty-space skipping (1: on; the same frames, faster
-# on the CPU, slower on the GPU).
+# and skip: bit 0, render.bend's empty-space skipping; bit 1, the sun table
+# for the shadow ray (world.bend's sun table, render.bend's sun.ensure). The
+# same frames either way: both are faster on the CPU, slower on the GPU.
 type View is Data:
   View{ws: U32, hs: U32, tier: U32, vd: U32, sel: U32, saz: U32, mode: U32, skip: U32}
 
@@ -444,11 +445,27 @@ def view.m(+mode: U32, +c: R.Cam, +d: Nat, +k: Nat, +p: P, +lc: Nat, w: Array<U3
     case _:
       view.fin(p, lc, R.draw!(~W.Put.set, c, d, k, w, fb, old))
 
+# The world's sun table for c when the view asks for it (skip bit 1).
+def sun.if(on: Bool, +c: R.Cam, +d: Nat, w: Array<U32>) -> Array<U32> & U32:
+  match on:
+    case True{}:
+      R.sun.ensure(c, d, w)
+    case False{}:
+      (w, 0)
+
+# The frame with the world's sun table (render.bend's sun.ensure: built on
+# the first frame, or when the sun changes; the same frame, faster).
+def view.s(+mode: U32, +c: R.Cam, +d: Nat, +k: Nat, +p: P, +lc: Nat, fb: Array<U32>, old: Image,
+  r: Array<U32> & U32) -> Shown:
+  (w, +on) = r
+  view.m(mode, R.cam.sun(c, on), d, k, p, lc, w, fb, old)
+
 def view.go(+v: View, +d: Nat, +k: Nat, fb: Array<U32>, old: Image, r: Game & Aim) -> Shown:
   View{ws, hs, tier, vd, sel, saz, mode, skip} = v
   (g, +a) = r
   Game{w, +p, +lc} = g
-  view.m(mode, view.cam(v, p, lc, a), d, k, p, lc, w, fb, old)
+  +c = view.cam(v, p, lc, a)
+  view.s(mode, c, d, k, p, lc, fb, old, sun.if(U32.is_ne(U32.and(skip, 2), 0), c, d, w))
 
 # The game's frame (render(state)): the view from the player's eye with the
 # hotbar, the crosshair and the aimed block outlined, rendered into fb
@@ -457,3 +474,14 @@ def view.go(+v: View, +d: Nat, +k: Nat, fb: Array<U32>, old: Image, r: Game & Ai
 # turn); the last frame's image old is dropped in it.
 def view(+v: View, +d: Nat, +k: Nat, g: Game, fb: Array<U32>, old: Image) -> Shown:
   view.go(v, d, k, fb, old, aim(g))
+
+def prep.fin(+p: P, +lc: Nat, r: Array<U32> & U32) -> Game:
+  (w, +on) = r
+  Game{w, p, lc}
+
+# g ready for view v: its sun table built now (2^d leaves a pass), not on
+# the first frame.
+def prep(+v: View, +d: Nat, g: Game) -> Game:
+  View{ws, hs, tier, vd, sel, saz, mode, skip} = v
+  Game{w, +p, +lc} = g
+  prep.fin(p, lc, sun.if(U32.is_ne(U32.and(skip, 2), 0), view.cam(v, p, lc, Aim{none(), none(), none()}), d, w))

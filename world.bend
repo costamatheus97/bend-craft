@@ -223,6 +223,99 @@ def occ.go(n: Nat, +lc: Nat, w: Array<U32>) -> Array<U32>:
 def occ.build(+lc: Nat, w: Array<U32>) -> Array<U32>:
   occ.go(U32.to_nat(U32.shln(1, Nat.add(Nat.add(lc, lc), 4n))), lc, w)
 
+# Sun table
+# ---------
+# For the shadow ray (render.bend's sun.build fills it, render.bend's sh
+# reads it): per column c, e(c), such that a shadow ray toward the sun
+# that starts in column c at a height y >= e(c) meets no block within its
+# reach. It is kept exact by set: a block set raises the e of every
+# column whose corridor holds it (a removed block leaves e high, which is
+# only slower). Also: each column's top (the lowest y from which the
+# column is air), the corridor's offsets (count at key + 3; each packed as
+# dx + 128 | (dz + 128) << 8 | q << 16: the column (x + dx, z + dz) and
+# how far a ray has climbed, at least, by the time it gets there), and
+# the key: the sun (lx, ly, lz) it was made for (ly 0: no table). In the
+# upper half, after the atlas: e at 5/4 of aux, the tops after it, the
+# offsets and the key before it. Only for lc >= 2 (smaller worlds have
+# no room: sun.on).
+def sun.on(+lc: Nat) -> Bool:
+  (U32.from_nat(lc) >= 2 : U32)
+
+def sun.e(+lc: Nat) -> U32:
+  +a = U32.shln(1, lw(lc))
+  (a + U32.shrn(a, 2n) : U32)
+
+def sun.top(+lc: Nat) -> U32:
+  (sun.e(lc) + U32.shln(1, lcols(lc)) : U32)
+
+def sun.key(+lc: Nat) -> U32:
+  (sun.e(lc) - 8 : U32)
+
+def sun.off(+lc: Nat) -> U32:
+  (sun.e(lc) - 1032 : U32)
+
+def sun.max(+a: U32, +b: U32) -> U32:
+  sel((a > b : U32), a, b)
+
+# e(x, z) raised to at least v (nothing outside the world).
+def sun.up.at(+i: U32, +v: U32, r: Array<U32> & U32) -> Array<U32>:
+  (w, +e) = r
+  w[i] <- sun.max(e, v)
+
+def sun.up.if(on: Bool, +lc: Nat, +x: U32, +z: U32, +v: U32, w: Array<U32>) -> Array<U32>:
+  match on:
+    case True{}:
+      +i = (sun.e(lc) + col(lc, x, z) : U32)
+      sun.up.at(i, v, w[i])
+    case False{}:
+      w
+
+# Offset k's column raised: the column c - o sees column c = (x, z) at
+# climb q, so its e is at least top - q.
+def sun.up.o(+lc: Nat, +x: U32, +z: U32, +top: U32, r: Array<U32> & U32) -> Array<U32>:
+  (w, +o) = r
+  +x2 = (x + 128 - U32.and(o, 255) : U32)
+  +z2 = (z + 128 - U32.and(U32.shrn(o, 8n), 255) : U32)
+  +q = U32.shrn(o, 16n)
+  +s = side(lc)
+  sun.up.if(((x2 < s) && (z2 < s) && (top > q) : U32), lc, x2, z2, (top - q : U32), w)
+
+def sun.up.go(n: Nat, +lc: Nat, +x: U32, +z: U32, +top: U32, w: Array<U32>) -> Array<U32>:
+  match n:
+    case 0n:
+      w
+    case 1n++p:
+      sun.up.go(p, lc, x, z, top, sun.up.o(lc, x, z, top, w[(sun.off(lc) + U32.from_nat(p) : U32)]))
+
+def sun.up.n(+lc: Nat, +x: U32, +z: U32, +top: U32, r: Array<U32> & U32) -> Array<U32>:
+  (w, +n) = r
+  sun.up.go(U32.to_nat(n), lc, x, z, top, w)
+
+def sun.up.top(+lc: Nat, +x: U32, +z: U32, +y: U32, r: Array<U32> & U32) -> Array<U32>:
+  (w, +t0) = r
+  +i = (sun.top(lc) + col(lc, x, z) : U32)
+  +top = sun.max(t0, (y + 1 : U32))
+  sun.up.n(lc, x, z, top, (w[i] <- top)[(sun.key(lc) + 3 : U32)])
+
+def sun.set.if(on: Bool, +lc: Nat, +x: U32, +y: U32, +z: U32, w: Array<U32>) -> Array<U32>:
+  match on:
+    case True{}:
+      sun.up.top(lc, x, z, y, w[(sun.top(lc) + col(lc, x, z) : U32)])
+    case False{}:
+      w
+
+def sun.set.k(+lc: Nat, +x: U32, +y: U32, +z: U32, +b: U32, r: Array<U32> & U32) -> Array<U32>:
+  (w, +ly) = r
+  sun.set.if((U32.is_ne(ly, 0) && U32.is_ne(b, 0)), lc, x, y, z, w)
+
+# After block (x, y, z) became b: the table kept exact (when there is one).
+def sun.set(on: Bool, +lc: Nat, +x: U32, +y: U32, +z: U32, +b: U32, w: Array<U32>) -> Array<U32>:
+  match on:
+    case True{}:
+      sun.set.k(lc, x, y, z, b, w[(sun.key(lc) + 1 : U32)])
+    case False{}:
+      w
+
 def set.at(+i: U32, +y: U32, +b: U32, r: Array<U32> & U32) -> Array<U32>:
   (w, +wd) = r
   +sh = U32.to_nat(U32.shln(U32.and(y, 3), 3n))
@@ -233,7 +326,7 @@ def set.if(on: Bool, +lc: Nat, +x: U32, +y: U32, +z: U32, +b: U32, w: Array<U32>
   match on:
     case True{}:
       +i = word(lc, x, y, z)
-      occ.fix(lc, x, y, z, set.at(i, y, b, w[i]))
+      sun.set(sun.on(lc), lc, x, y, z, b, occ.fix(lc, x, y, z, set.at(i, y, b, w[i])))
     case False{}:
       w
 
