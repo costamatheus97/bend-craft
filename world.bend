@@ -6,6 +6,7 @@
 #   W.gen(~put, d, lc, seed, hm, w)   # terrain, 2^d leaves per pass (call it with !)
 #   W.word(lc, x, y, z)            # the word of block (x, y, z); W.get / W.set a block
 #   W.hash(w)                      # (w, an order-sensitive hash of every word)
+#   W.occ.build(lc, w)             # the empty-space table (after gen; set keeps it)
 #
 # Layout. The world is 16 << lc blocks along x and z and 64 high. A block
 # id is one byte, four per U32, packed along y: word (col << 4) | (y >> 2),
@@ -140,6 +141,88 @@ def get.if(on: Bool, +lc: Nat, +x: U32, +y: U32, +z: U32, w: Array<U32>) -> Arra
 def get(+lc: Nat, +x: U32, +y: U32, +z: U32, w: Array<U32>) -> Array<U32> & U32:
   get.if(inside(lc, x, y, z), lc, x, y, z, w)
 
+# Occupancy
+# ---------
+# One word per 4 x 4 group of columns: bit j set when the 4 x 4 x 4 cells
+# at y 4j .. 4j + 3 hold anything but air (water counts). The four blocks
+# of a column at y 4j .. 4j + 3 are one word, so a group's cells at slab j
+# are 16 words. It lives in the upper half at 3/2 of aux (after the
+# atlas's room); set keeps it exact; occ.build makes it from the voxels
+# (after gen, or after any write that skips set). A ray skips a group
+# whose bit is clear (render.bend).
+
+def occ.base(+lc: Nat) -> U32:
+  +a = U32.shln(1, lw(lc))
+  (a + U32.shrn(a, 1n) : U32)
+
+# The occupancy word of the group of column (x, z).
+def occ.at(+lc: Nat, +x: U32, +z: U32) -> U32:
+  (occ.base(lc) + U32.or(U32.shln(U32.shrn(z, 2n), Nat.add(lc, 2n)), U32.shrn(x, 2n)) : U32)
+
+# The word of slab s of column i (0 .. 15, x fastest) of the group at (x0, z0).
+def occ.w(+lc: Nat, +x0: U32, +z0: U32, +s: U32, +i: U32) -> U32:
+  U32.or(U32.shln(col(lc, (x0 + U32.and(i, 3) : U32), (z0 + U32.shrn(i, 2n) : U32)), 4n), s)
+
+# The OR of a slab's 16 words (r: word n's read).
+def occ.or(n: Nat, +lc: Nat, +x0: U32, +z0: U32, +s: U32, +m: U32, r: Array<U32> & U32) ->
+  Array<U32> & U32:
+  match n:
+    case 0n:
+      (w, +v) = r
+      (w, U32.or(m, v))
+    case 1n++p:
+      (w, +v) = r
+      occ.or(p, lc, x0, z0, s, U32.or(m, v), w[occ.w(lc, x0, z0, s, U32.from_nat(p))])
+
+def occ.slab(+lc: Nat, +x0: U32, +z0: U32, +s: U32, w: Array<U32>) -> Array<U32> & U32:
+  occ.or(15n, lc, x0, z0, s, 0, w[occ.w(lc, x0, z0, s, 15)])
+
+def occ.put(+i: U32, +j: U32, +on: U32, r: Array<U32> & U32) -> Array<U32>:
+  (w, +o) = r
+  w[i] <- U32.or(U32.and(o, U32.not(U32.shln(1, U32.to_nat(j)))), U32.shln(on, U32.to_nat(j)))
+
+def occ.fix.at(+lc: Nat, +x: U32, +z: U32, +j: U32, r: Array<U32> & U32) -> Array<U32>:
+  (w, +m) = r
+  +i = occ.at(lc, x, z)
+  occ.put(i, j, sel(U32.is_ne(m, 0), 1, 0), w[i])
+
+# The bit of (x, y, z)'s group and slab, from the voxels.
+def occ.fix(+lc: Nat, +x: U32, +y: U32, +z: U32, w: Array<U32>) -> Array<U32>:
+  +j = U32.shrn(y, 2n)
+  occ.fix.at(lc, x, z, j, occ.slab(lc, U32.and(x, 4294967292), U32.and(z, 4294967292), j, w))
+
+# A group's mask (r: the OR of slab n).
+def occ.mask(n: Nat, +lc: Nat, +x0: U32, +z0: U32, +m: U32, r: Array<U32> & U32) ->
+  Array<U32> & U32:
+  match n:
+    case 0n:
+      (w, +v) = r
+      (w, U32.or(m, sel(U32.is_ne(v, 0), 1, 0)))
+    case 1n++p:
+      (w, +v) = r
+      +s = U32.from_nat(p)
+      occ.mask(p, lc, x0, z0, U32.or(m, U32.shln(sel(U32.is_ne(v, 0), 1, 0), U32.to_nat((s + 1 : U32)))),
+        occ.slab(lc, x0, z0, s, w))
+
+def occ.store(+i: U32, r: Array<U32> & U32) -> Array<U32>:
+  (w, +m) = r
+  w[i] <- m
+
+def occ.go(n: Nat, +lc: Nat, w: Array<U32>) -> Array<U32>:
+  match n:
+    case 0n:
+      w
+    case 1n++p:
+      +g = U32.from_nat(p)
+      +x0 = U32.shln(U32.and(g, (U32.shln(1, Nat.add(lc, 2n)) - 1 : U32)), 2n)
+      +z0 = U32.shln(U32.shrn(g, Nat.add(lc, 2n)), 2n)
+      occ.go(p, lc, occ.store((occ.base(lc) + g : U32), occ.mask(15n, lc, x0, z0, 0,
+        occ.slab(lc, x0, z0, 15, w))))
+
+# Every group's word from the voxels (host, once after gen).
+def occ.build(+lc: Nat, w: Array<U32>) -> Array<U32>:
+  occ.go(U32.to_nat(U32.shln(1, Nat.add(Nat.add(lc, lc), 4n))), lc, w)
+
 def set.at(+i: U32, +y: U32, +b: U32, r: Array<U32> & U32) -> Array<U32>:
   (w, +wd) = r
   +sh = U32.to_nat(U32.shln(U32.and(y, 3), 3n))
@@ -150,11 +233,11 @@ def set.if(on: Bool, +lc: Nat, +x: U32, +y: U32, +z: U32, +b: U32, w: Array<U32>
   match on:
     case True{}:
       +i = word(lc, x, y, z)
-      set.at(i, y, b, w[i])
+      occ.fix(lc, x, y, z, set.at(i, y, b, w[i]))
     case False{}:
       w
 
-# Sets block (x, y, z) to b; nothing outside the world.
+# Sets block (x, y, z) to b (and its group's occupancy bit); nothing outside the world.
 def set(+lc: Nat, +x: U32, +y: U32, +z: U32, +b: U32, w: Array<U32>) -> Array<U32>:
   set.if(inside(lc, x, y, z), lc, x, y, z, b, w)
 

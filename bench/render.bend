@@ -4,7 +4,7 @@
 #   view distance (blocks); BR_X, BR_Z [128, 128] eye column; BR_UP [2] eye height over the
 #   ground (blocks); BR_YAW [8192], BR_PITCH [63000] (65536 a turn); BR_SPIN [0] yaw per frame;
 #   BR_D [13] fork depth; BR_K [5] Image quadtree levels over 16 x 16 tiles (2^(k+4) >= W, H);
-#   BR_TL [4] the conversion's tiles (2^TL samples square); BR_SEL [6000], BR_SAZ [3000] the sun's elevation and azimuth; BR_N [10] frames; BR_BANG [1] (0: a plain call, the CPU lane); BR_IMG [1] (0: the flat
+#   BR_TL [4] the conversion's tiles (2^TL samples square); BR_SKIP [0] (1: empty-space skipping); BR_SEL [6000], BR_SAZ [3000] the sun's elevation and azimuth; BR_N [10] frames; BR_BANG [1] (0: a plain call, the CPU lane); BR_IMG [1] (0: the flat
 #   framebuffer only, no window Image); BR_PPM [none] write the last frame there (P6).
 # Prints: frame <i> us <us> per frame, then: render ... fb <hash> img <hash>.
 import Base
@@ -19,7 +19,7 @@ def Clock.us() -> IO(U32):
 
 type Cfg is Data:
   Cfg{lc: Nat, ws: U32, hs: U32, tier: U32, vd: U32, px: U32, py: U32, pz: U32, yaw: U32,
-    pitch: U32, spin: U32, d: Nat, k: Nat, bang: U32, img: U32, sel: U32, saz: U32, tl: Nat}
+    pitch: U32, spin: U32, d: Nat, k: Nat, bang: U32, img: U32, sel: U32, saz: U32, tl: Nat, sk: U32}
 
 def Env.u32(m: Maybe<&2, U32>, +default: U32) -> U32:
   match m:
@@ -47,9 +47,9 @@ def ih(img: Image) -> U32:
     case Qua{a, b, c, d}:
       Rng.mix(U32.xor(ih(a), Rng.mix((ih(b) + Rng.mix((ih(c) * 3 + Rng.mix(ih(d)) : U32)) : U32))))
 
-def cam(+g: Cfg, +i: U32) -> R.Cam:
-  Cfg{lc, ws, hs, tier, vd, px, py, pz, yaw, pitch, spin, d, k, bang, img, sel, saz, tl} = g
-  R.cam(px, py, pz, (yaw + spin * i : U32), pitch, ws, hs, vd, tier, sel, saz, lc)
+def cam(+cf: Cfg, +i: U32) -> R.Cam:
+  Cfg{lc, ws, hs, tier, vd, px, py, pz, yaw, pitch, spin, d, k, bang, img, sel, saz, tl, sk} = cf
+  R.cam.skip(R.cam(px, py, pz, (yaw + spin * i : U32), pitch, ws, hs, vd, tier, sel, saz, lc), sk)
 
 def draw.bang(+tl: Nat, +c: R.Cam, +d: Nat, +k: Nat, w: Array<U32>, fb: Array<U32>, old: Image) -> R.Out:
   R.draw.t!(~W.Put.set, tl, c, d, k, w, fb, old)
@@ -73,10 +73,10 @@ def frame.img(img: U32, +bang: U32, +tl: Nat, +c: R.Cam, +d: Nat, +k: Nat, w: Ar
     case _ _:
       draw.bang(tl, c, d, k, w, fb, old)
 
-def frame(+g: Cfg, +i: U32, o: R.Out) -> R.Out:
-  Cfg{lc, ws, hs, tier, vd, px, py, pz, yaw, pitch, spin, d, k, bang, img, sel, saz, tl} = g
+def frame(+cf: Cfg, +i: U32, o: R.Out) -> R.Out:
+  Cfg{lc, ws, hs, tier, vd, px, py, pz, yaw, pitch, spin, d, k, bang, img, sel, saz, tl, sk} = cf
   R.Out{w, fb, old} = o
-  frame.img(img, bang, tl, cam(g, i), d, k, w, fb, old)
+  frame.img(img, bang, tl, cam(cf, i), d, k, w, fb, old)
 
 def write.fin(r: File & Result<&1, &1, U32 & String, Unit>) -> IO(Unit):
   (f, res) = r
@@ -101,8 +101,8 @@ def ppm(r: Result<&1, &1, U32 & String, String>, +ws: U32, +hs: U32, fb: Array<U
     case Done{path}:
       ppm.fin(path, R.ppm(ws, hs, fb))
 
-def fin.h(+g: Cfg, +hi: U32, r: Array<U32> & U32) -> IO(Unit):
-  Cfg{lc, ws, hs, tier, vd, px, py, pz, yaw, pitch, spin, d, k, bang, img, sel, saz, tl} = g
+def fin.h(+cf: Cfg, +hi: U32, r: Array<U32> & U32) -> IO(Unit):
+  Cfg{lc, ws, hs, tier, vd, px, py, pz, yaw, pitch, spin, d, k, bang, img, sel, saz, tl, sk} = cf
   (fb, +hf) = r
   do IO<Unit>:
     Unit <- IO.print("render lc " ++ Nat.show(lc) ++ " " ++ U32.show(ws) ++ "x" ++ U32.show(hs)
@@ -112,21 +112,21 @@ def fin.h(+g: Cfg, +hi: U32, r: Array<U32> & U32) -> IO(Unit):
     p : Result<&1, &1, U32 & String, String> <- IO.get_env("BR_PPM")
     ppm(p, ws, hs, fb)
 
-def fin(+g: Cfg, o: R.Out) -> IO(Unit):
+def fin(+cf: Cfg, o: R.Out) -> IO(Unit):
   R.Out{w, fb, img} = o
-  fin.h(g, ih(img), W.hash(fb))
+  fin.h(cf, ih(img), W.hash(fb))
 
-def loop(n: Nat, +i: U32, +g: Cfg, o: R.Out) -> IO(Unit):
+def loop(n: Nat, +i: U32, +cf: Cfg, o: R.Out) -> IO(Unit):
   match n:
     case 0n:
-      fin(g, o)
+      fin(cf, o)
     case 1n+p:
       do IO<Unit>:
         +t0 : U32 <- Clock.us()
-        o2 : R.Out <- IO.pure(R.Out, frame(g, i, o))
+        o2 : R.Out <- IO.pure(R.Out, frame(cf, i, o))
         +t1 : U32 <- Clock.us()
         IO.print("frame " ++ U32.show(i) ++ " us " ++ U32.show((t1 - t0 : U32)))
-        loop(p, (i + 1 : U32), g, o2)
+        loop(p, (i + 1 : U32), cf, o2)
 
 def eye(+up: U32, r: Array<U32> & U32) -> U32:
   (hm, +h) = r
@@ -134,12 +134,12 @@ def eye(+up: U32, r: Array<U32> & U32) -> U32:
   (U32.shln((Fx.sel((g < W.sea() : U32), W.sea(), g) + up : U32), 16n) + 32768 : U32)
 
 def start(+n: Nat, +g0: Cfg, +up: U32, p: W.P2) -> IO(Unit):
-  Cfg{lc, ws, hs, tier, vd, px, py, pz, yaw, pitch, spin, d, k, bang, img, sel, saz, tl} = g0
+  Cfg{lc, ws, hs, tier, vd, px, py, pz, yaw, pitch, spin, d, k, bang, img, sel, saz, tl, sk} = g0
   W.P2{hm, w} = p
   +x = U32.shrn(px, 16n)
   +z = U32.shrn(pz, 16n)
   loop(n, 0, Cfg{lc, ws, hs, tier, vd, px, eye(up, hm[W.col(lc, x, z)]), pz, yaw, pitch, spin, d,
-    k, bang, img, sel, saz, tl}, R.Out{R.tex(lc, w), Array.new(U32, 22n, 0), Pix{0}})
+    k, bang, img, sel, saz, tl, sk}, R.Out{R.tex(lc, w), Array.new(U32, 22n, 0), Pix{0}})
 
 def scene(+lc: Nat, +seed: U32) -> W.P2:
   W.gen!(~W.Put.set, 13n, lc, seed, W.hm.new(lc), W.new(lc))
@@ -166,7 +166,8 @@ def main() -> IO(Unit):
     +sel : U32 <- num("BR_SEL", 6000)
     +saz : U32 <- num("BR_SAZ", 3000)
     +tl : U32 <- num("BR_TL", 4)
+    +sk : U32 <- num("BR_SKIP", 0)
     start(U32.to_nat(n), Cfg{U32.to_nat(lc), ws, hs, tier, vd, (U32.shln(x, 16n) + 32768 : U32), 0,
       (U32.shln(z, 16n) + 32768 : U32), yaw, pitch, spin, U32.to_nat(d), U32.to_nat(k), bang, img, sel,
-      saz, U32.to_nat(tl)},
+      saz, U32.to_nat(tl), sk},
       up, scene(U32.to_nat(lc), seed))

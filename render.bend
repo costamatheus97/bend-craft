@@ -49,7 +49,7 @@ type Cam3 is Data:
 type Cam is Data:
   Cam{ox: U32, oy: U32, oz: U32, fx: U32, fy: U32, fz: U32, ax: U32, ay: U32, az: U32, bx: U32,
     by: U32, bz: U32, ws: U32, hs: U32, tmax: U32, tier: U32, lx: U32, ly: U32, lz: U32, snx: U32,
-    sny: U32, snr: U32, hot: U32, tgx: U32, tgy: U32, tgz: U32, lc: Nat}
+    sny: U32, snr: U32, hot: U32, tgx: U32, tgy: U32, tgz: U32, lc: Nat, skp: U32}
 
 # v * 2 / ws, signed (v is 16.16 in [-1, 1]).
 def per(+v: U32, +ws: U32) -> U32:
@@ -79,7 +79,7 @@ def cam.fin(+px: U32, +py: U32, +pz: U32, +sy: U32, +cy: U32, +sp: U32, +cp: U32
   Cam{px, py, pz, Fx.mul(cp, sy), sp, Fx.mul(cp, cy), per(cy, ws), 0, per(Fx.neg(sy), ws),
     per(Fx.mul(sp, sy), ws), per(Fx.neg(cp), ws), per(Fx.mul(sp, cy), ws), ws, hs,
     U32.shln(vd, 12n), tier, lx, ly, lz, snx, sny, snr, 4294967295, 4294967295, 4294967295,
-    4294967295, lc}
+    4294967295, lc, 0}
 
 # The camera at (px, py, pz), turned yaw and pitch (turns of 65536): yaw
 # 0 looks along +z, yaw grows toward +x; pitch grows upward. The
@@ -102,8 +102,14 @@ def cam(+px: U32, +py: U32, +pz: U32, +yaw: U32, +pitch: U32, +ws: U32, +hs: U32
 # c with the hotbar (slot h selected) and the crosshair drawn, and the
 # block (x, y, z) outlined.
 def cam.ui(+c: Cam, +h: U32, +x: U32, +y: U32, +z: U32) -> Cam:
-  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc} = c
-  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, h, x, y, z, lc}
+  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc, skp} = c
+  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, h, x, y, z, lc, skp}
+
+# c with empty-space skipping on (1) or off (0): the same frame either way;
+# it pays on the CPU, not on the GPU (see go.s).
+def cam.skip(+c: Cam, +on: U32) -> Cam:
+  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc, skp} = c
+  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc, on}
 
 # The hotbar's blocks: grass, dirt, stone, cobble, planks, log, brick, glass, sand.
 def hot.blk(+i: U32) -> U32:
@@ -272,7 +278,7 @@ def T.go(n: Nat, +base: U32, w: Array<U32>) -> Array<U32>:
 
 # The atlas into the scene array (host, once).
 def tex(+lc: Nat, w: Array<U32>) -> Array<U32>:
-  T.go(U32.to_nat(T.count()), W.aux(lc), w)
+  W.occ.build(lc, T.go(U32.to_nat(T.count()), W.aux(lc), w))
 
 # The traversal
 # -------------
@@ -328,6 +334,147 @@ def go(
             Fx.sel(wet && U32.is_eq(wt, none()), t, wt), Fx.sel(solid, b, 0), x, y, z, t, f, sx, sy,
             sz, ddx, ddy, ddz, fX, fY, fZ, tmax, side, lc, rd(lc, xn, yn, zn, w))
 
+# Empty-space skipping (the CPU's walk)
+# -------------------------------------
+# The world keeps an occupancy word per 4 x 4 group of columns (world.bend's
+# occ: bit j set when the 4 x 4 x 4 cells at y 4j .. 4j + 3 hold anything
+# but air). go.s reads a group's word first: an empty group is crossed in
+# one step, landing on the first cell past it in exactly the state the
+# one-cell walk reaches there (per axis, its boundary events at ta, ta + dd,
+# ... taken in (t, axis) order, x before y before z at equal t, up to and
+# including the event that leaves the group), so the hit, t and face of
+# every ray are those of go. A full group is walked cell by cell, back to
+# the group's word on leaving it. On the GPU the branch splits a wave's
+# lanes and costs more than it saves (OPTIMIZATIONS.md 6), so only the CPU
+# turns it on (cam.skip).
+type Sk is Data:
+  Sk{x: U32, y: U32, z: U32, tx: U32, ty: U32, tz: U32, t: U32, f: U32}
+
+def sk.x(+s: Sk) -> U32:
+  Sk{x, y, z, tx, ty, tz, t, f} = s
+  x
+
+def sk.y(+s: Sk) -> U32:
+  Sk{x, y, z, tx, ty, tz, t, f} = s
+  y
+
+def sk.z(+s: Sk) -> U32:
+  Sk{x, y, z, tx, ty, tz, t, f} = s
+  z
+
+def sk.tx(+s: Sk) -> U32:
+  Sk{x, y, z, tx, ty, tz, t, f} = s
+  tx
+
+def sk.ty(+s: Sk) -> U32:
+  Sk{x, y, z, tx, ty, tz, t, f} = s
+  ty
+
+def sk.tz(+s: Sk) -> U32:
+  Sk{x, y, z, tx, ty, tz, t, f} = s
+  tz
+
+def sk.t(+s: Sk) -> U32:
+  Sk{x, y, z, tx, ty, tz, t, f} = s
+  t
+
+def sk.f(+s: Sk) -> U32:
+  Sk{x, y, z, tx, ty, tz, t, f} = s
+  f
+
+# The events of an axis left inside the group (c the cell, s its step).
+def sk.m(+c: U32, +s: U32) -> U32:
+  Fx.sel(U32.is_eq(s, 1), (3 - U32.and(c, 3) : U32), U32.and(c, 3))
+
+# The events at ta, ta + dd, ta + 2 dd before lim.
+def sk.n(+ta: U32, +dd: U32, +lim: U32) -> U32:
+  +a1 = (ta + dd : U32)
+  +a2 = (a1 + dd : U32)
+  +c0 = Fx.b2u((ta < lim : U32))
+  +c1 = Fx.b2u((a1 < lim : U32))
+  +c2 = Fx.b2u((a2 < lim : U32))
+  (c0 + c1 + c2 : U32)
+
+def skip(+x: U32, +y: U32, +z: U32, +t: U32, +f: U32, +tx: U32, +ty: U32, +tz: U32, +sx: U32,
+  +sy: U32, +sz: U32, +ddx: U32, +ddy: U32, +ddz: U32, +fX: U32, +fY: U32, +fZ: U32) -> Sk:
+  +mx = sk.m(x, sx)
+  +my = sk.m(y, sy)
+  +mz = sk.m(z, sz)
+  +ex = (tx + mx * ddx : U32)
+  +ey = (ty + my * ddy : U32)
+  +ez = (tz + mz * ddz : U32)
+  +isx = ((ex <= ey) && (ex <= ez) : U32)
+  +isy = Bool.not(isx) && Bool.not((ez < ey : U32))
+  +isz = Bool.not(isx) && Bool.not(isy)
+  +tt = Fx.sel(isx, ex, Fx.sel(isy, ey, ez))
+  +nx = Fx.sel(isx, (mx + 1 : U32), sk.n(tx, ddx, (tt + 1 : U32)))
+  +ny = Fx.sel(isy, (my + 1 : U32), sk.n(ty, ddy, Fx.sel(isz, (tt + 1 : U32), tt)))
+  +nz = Fx.sel(isz, (mz + 1 : U32), sk.n(tz, ddz, tt))
+  Sk{(x + nx * sx : U32), (y + ny * sy : U32), (z + nz * sz : U32), (tx + nx * ddx : U32),
+    (ty + ny * ddy : U32), (tz + nz * ddz : U32), tt, Fx.sel(isx, fX, Fx.sel(isy, fY, fZ))}
+
+# The cell itself when its group is full (the walk goes on cell by cell).
+def skip.if(full: Bool, +x: U32, +y: U32, +z: U32, +t: U32, +f: U32, +tx: U32, +ty: U32, +tz: U32,
+  +sx: U32, +sy: U32, +sz: U32, +ddx: U32, +ddy: U32, +ddz: U32, +fX: U32, +fY: U32, +fZ: U32) -> Sk:
+  match full:
+    case True{}:
+      Sk{x, y, z, tx, ty, tz, t, f}
+    case False{}:
+      skip(x, y, z, t, f, tx, ty, tz, sx, sy, sz, ddx, ddy, ddz, fX, fY, fZ)
+
+# What go.s reads for cell (x, y, z): its group's occupancy word (grp), or its own word.
+def ix(grp: Bool, +lc: Nat, +x: U32, +y: U32, +z: U32) -> U32:
+  Fx.sel(grp, W.occ.at(lc, x, z), W.word(lc, x, y, z))
+
+# go with the skip: grp says r holds the group's word of cell (x, y, z).
+def go.s(
+  n: Nat, stop: Bool, grp: Bool, +x: U32, +y: U32, +z: U32, +tx: U32, +ty: U32, +tz: U32, +t: U32,
+  +f: U32, +wt: U32, +hb: U32, +hx: U32, +hy: U32, +hz: U32, +ht: U32, +hf: U32, +sx: U32, +sy: U32,
+  +sz: U32, +ddx: U32, +ddy: U32, +ddz: U32, +fX: U32, +fY: U32, +fZ: U32, +tmax: U32, +side: U32,
+  +lc: Nat, r: Array<U32> & U32
+) -> Array<U32> & Hit:
+  match n:
+    case 0n:
+      (w, +wd) = r
+      (w, Hit{hb, hf, ht, hx, hy, hz, wt})
+    case 1n+k:
+      match stop:
+        case True{}:
+          (w, +wd) = r
+          (w, Hit{hb, hf, ht, hx, hy, hz, wt})
+        case False{}:
+          match grp:
+            case True{}:
+              (w, +oc) = r
+              +full = U32.is_ne(U32.and(U32.shrn(oc, U32.to_nat(U32.shrn(y, 2n))), 1), 0)
+              +g2 = Bool.not(full)
+              +s = skip.if(full, x, y, z, t, f, tx, ty, tz, sx, sy, sz, ddx, ddy, ddz, fX, fY, fZ)
+              +x2 = sk.x(s)
+              +y2 = sk.y(s)
+              +z2 = sk.z(s)
+              +t2 = sk.t(s)
+              +st = g2 && ((x2 >= side) || (y2 >= 64) || (z2 >= side) || (t2 > tmax) : U32)
+              go.s(k, st, g2, x2, y2, z2, sk.tx(s), sk.ty(s), sk.tz(s), t2, sk.f(s), wt, 0, x, y, z, t, f,
+                sx, sy, sz, ddx, ddy, ddz, fX, fY, fZ, tmax, side, lc, w[ix(g2, lc, x2, y2, z2)])
+            case False{}:
+              (w, +wd) = r
+              +b = W.byte(wd, y)
+              +wet = U32.is_eq(b, 5)
+              +solid = U32.is_ne(b, 0) && Bool.not(wet)
+              +tm = Fx.sel((tx < ty : U32), Fx.sel((tx < tz : U32), tx, tz), Fx.sel((ty < tz : U32), ty, tz))
+              +ax = U32.is_eq(tx, tm)
+              +ay = Bool.not(ax) && U32.is_eq(ty, tm)
+              +az = Bool.not(ax) && Bool.not(ay)
+              +xn = (x + Fx.sel(ax, sx, 0) : U32)
+              +yn = (y + Fx.sel(ay, sy, 0) : U32)
+              +zn = (z + Fx.sel(az, sz, 0) : U32)
+              +st = solid || ((xn >= side) || (yn >= 64) || (zn >= side) || (tm > tmax) : U32)
+              +cr = U32.is_ne(U32.shrn(U32.or(U32.or(U32.xor(xn, x), U32.xor(yn, y)), U32.xor(zn, z)), 2n), 0)
+              go.s(k, st, cr, xn, yn, zn, (tx + Fx.sel(ax, ddx, 0) : U32), (ty + Fx.sel(ay, ddy, 0) : U32),
+                (tz + Fx.sel(az, ddz, 0) : U32), tm, Fx.sel(ax, fX, Fx.sel(ay, fY, fZ)),
+                Fx.sel(wet && U32.is_eq(wt, none()), t, wt), Fx.sel(solid, b, 0), x, y, z, t, f, sx, sy,
+                sz, ddx, ddy, ddz, fX, fY, fZ, tmax, side, lc, w[ix(cr, lc, xn, yn, zn)])
+
 # t per cell along an axis of |d| = ad (2^27, beyond any view, when ad is tiny).
 def ddt(+ad: U32) -> U32:
   Fx.sel((ad < 16 : U32), 134217728, U32.div(268435456, ad))
@@ -342,9 +489,24 @@ def tmx(+o: U32, +d: U32, +dd: U32) -> U32:
 def step(+d: U32) -> U32:
   Fx.sel(Fx.isneg(d), 4294967295, 1)
 
-# The ray from o (16.16, inside the world or not) along d.
+# The ray from o (16.16, inside the world or not) along d; skp 1: go.s.
+def cast.go(skp: Bool, w: Array<U32>, +x: U32, +y: U32, +z: U32, +out: Bool, +ox: U32, +oy: U32,
+  +oz: U32, +dx: U32, +dy: U32, +dz: U32, +ddx: U32, +ddy: U32, +ddz: U32, +tmax: U32, +vd: U32,
+  +side: U32, +lc: Nat) -> Array<U32> & Hit:
+  match skp:
+    case True{}:
+      go.s(U32.to_nat((vd * 6 + 6 : U32)), out, True{}, x, y, z, tmx(ox, dx, ddx), tmx(oy, dy, ddy),
+        tmx(oz, dz, ddz), 0, 2, none(), 0, x, y, z, 0, 2, step(dx), step(dy), step(dz), ddx, ddy, ddz,
+        Fx.sel(Fx.isneg(dx), 0, 1), Fx.sel(Fx.isneg(dy), 2, 3), Fx.sel(Fx.isneg(dz), 4, 5), tmax, side,
+        lc, w[W.occ.at(lc, x, z)])
+    case False{}:
+      go(U32.to_nat((vd * 3 + 3 : U32)), out, x, y, z, tmx(ox, dx, ddx), tmx(oy, dy, ddy),
+        tmx(oz, dz, ddz), 0, 2, none(), 0, x, y, z, 0, 2, step(dx), step(dy), step(dz), ddx, ddy, ddz,
+        Fx.sel(Fx.isneg(dx), 0, 1), Fx.sel(Fx.isneg(dy), 2, 3), Fx.sel(Fx.isneg(dz), 4, 5), tmax, side,
+        lc, rd(lc, x, y, z, w))
+
 def cast(w: Array<U32>, +ox: U32, +oy: U32, +oz: U32, +dx: U32, +dy: U32, +dz: U32, +tmax: U32,
-  +vd: U32, +lc: Nat) -> Array<U32> & Hit:
+  +vd: U32, +lc: Nat, +skp: U32) -> Array<U32> & Hit:
   +x = U32.shrn(ox, 16n)
   +y = U32.shrn(oy, 16n)
   +z = U32.shrn(oz, 16n)
@@ -353,10 +515,8 @@ def cast(w: Array<U32>, +ox: U32, +oy: U32, +oz: U32, +dx: U32, +dy: U32, +dz: U
   +ddy = ddt(Fx.abs(dy))
   +ddz = ddt(Fx.abs(dz))
   +out = ((x >= side) || (y >= 64) || (z >= side) : U32)
-  go(U32.to_nat((vd * 3 + 3 : U32)), out, x, y, z, tmx(ox, dx, ddx), tmx(oy, dy, ddy),
-    tmx(oz, dz, ddz), 0, 2, none(), 0, x, y, z, 0, 2, step(dx), step(dy), step(dz), ddx, ddy, ddz,
-    Fx.sel(Fx.isneg(dx), 0, 1), Fx.sel(Fx.isneg(dy), 2, 3), Fx.sel(Fx.isneg(dz), 4, 5), tmax, side,
-    lc, rd(lc, x, y, z, w))
+  cast.go(U32.is_ne(skp, 0), w, x, y, z, out, ox, oy, oz, dx, dy, dz, ddx, ddy, ddz, tmax, vd, side,
+    lc)
 
 # Shading
 # -------
@@ -515,8 +675,8 @@ def sh.if(on: Bool, facing: Bool, +c: Cam, +px: U32, +py: U32, +pz: U32, w: Arra
     case True{} False{}:
       (w, sh.dark())
     case True{} True{}:
-      Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc} = c
-      sh.fin(cast(w, px, py, pz, lx, ly, lz, 98304, 24, lc))
+      Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc, skp} = c
+      sh.fin(cast(w, px, py, pz, lx, ly, lz, 98304, 24, lc, skp))
 
 # Whether face f looks toward the sun (the normal's component of l > 0).
 def facing(+f: U32, +lx: U32, +ly: U32, +lz: U32) -> Bool:
@@ -545,7 +705,7 @@ def hl(on: Bool, r: Array<U32> & U32) -> Array<U32> & U32:
 def shade.hit(+c: Cam, +dx: U32, +dy: U32, +dz: U32, +sky: U32, +fr: U32, +wc: U32, +h: Hit,
   w: Array<U32>) ->
   Array<U32> & U32:
-  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc} = c
+  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc, skp} = c
   Hit{b, f, t, x, y, z, wt} = h
   +hx = at(ox, dx, t)
   +hy = at(oy, dy, t)
@@ -574,7 +734,7 @@ def shade.pick(miss: Bool, +c: Cam, +dx: U32, +dy: U32, +dz: U32, +sky: U32, +fr
 # ea: how steeply the ray climbs or falls (|dy| over the L1 length of d, out of 256).
 def shade.ea(+c: Cam, +sx: U32, +sy: U32, +dx: U32, +dy: U32, +dz: U32, +ea: U32, +h: Hit,
   w: Array<U32>) -> Array<U32> & U32:
-  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc} = c
+  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc, skp} = c
   Hit{b, f, t, x, y, z, wt} = h
   +g = (256 - ea : U32)
   shade.pick(U32.is_eq(b, 0), c, dx, dy, dz, sky(Fx.sel(Fx.isneg(dy), 0, ea), sx, sy, snx, sny, snr),
@@ -588,13 +748,13 @@ def shade(+c: Cam, +sx: U32, +sy: U32, +dx: U32, +dy: U32, +dz: U32, r: Array<U3
 
 # The colour of sample (sx, sy).
 def view(w: Array<U32>, +sx: U32, +sy: U32, +c: Cam) -> Array<U32> & U32:
-  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc} = c
+  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc, skp} = c
   +mx = (sx * 2 + 1 - ws : U32)
   +my = (sy * 2 + 1 - hs : U32)
   +dx = (fx + Fx.asr((ax * mx + bx * my : U32), 1n) : U32)
   +dy = (fy + Fx.asr((ay * mx + by * my : U32), 1n) : U32)
   +dz = (fz + Fx.asr((az * mx + bz * my : U32), 1n) : U32)
-  shade(c, sx, sy, dx, dy, dz, cast(w, ox, oy, oz, dx, dy, dz, tmax, U32.shrn(tmax, 12n), lc))
+  shade(c, sx, sy, dx, dy, dz, cast(w, ox, oy, oz, dx, dy, dz, tmax, U32.shrn(tmax, 12n), lc, skp))
 
 # The crosshair: the colour under it inverted.
 def cross(+on: U32, r: Array<U32> & U32) -> Array<U32> & U32:
@@ -621,11 +781,11 @@ def pixel.if(bar: Bool, w: Array<U32>, +sx: U32, +sy: U32, +c: Cam, +x0: U32, +y
   Array<U32> & U32:
   match bar:
     case True{}:
-      Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc} = c
+      Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc, skp} = c
       +i = U32.div((sx - x0 : U32), q)
       bar.px(w, i, (sx - x0 - i * q : U32), (sy - y0 : U32), q, hot, lc)
     case False{}:
-      Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc} = c
+      Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc, skp} = c
       +ex = Fx.abs((sx - U32.shrn(ws, 1n) : U32))
       +ey = Fx.abs((sy - U32.shrn(hs, 1n) : U32))
       +arm = (U32.div(hs, 60) + 2 : U32)
@@ -633,7 +793,7 @@ def pixel.if(bar: Bool, w: Array<U32>, +sx: U32, +sy: U32, +c: Cam, +x0: U32, +y
       cross(Fx.b2u(on), view(w, sx, sy, c))
 
 def pixel(w: Array<U32>, +sx: U32, +sy: U32, +c: Cam) -> Array<U32> & U32:
-  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc} = c
+  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc, skp} = c
   +q = (U32.div(hs, 14) + 1 : U32)
   +x0 = U32.shrn((ws - q * 9 : U32), 1n)
   +y0 = (hs - q - U32.shrn(q, 2n) : U32)
@@ -651,11 +811,11 @@ type P2 is Type:
 def put(~wr: Array<U32> -> U32 -> U32 -> Array<U32>, n: Nat, +x: U32, +y: U32, +sx: U32, +sy: U32, +c: Cam, fb: Array<U32>, r: Array<U32> & U32) -> P2:
   match n:
     case 0n:
-      Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc} = c
+      Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc, skp} = c
       (w, +col) = r
       P2{w, wr(fb, (y * ws + x : U32), col)}
     case 1n+p:
-      Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc} = c
+      Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc, skp} = c
       (w, +col) = r
       +xa = (x + sx : U32)
       +e = (xa >= ws : U32)
@@ -668,7 +828,7 @@ def leaf.if(~wr: Array<U32> -> U32 -> U32 -> Array<U32>, e: Bool, +i: U32, +s: U
     case True{}:
       P2{w, fb}
     case False{}:
-      Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc} = c
+      Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc, skp} = c
       +x = U32.mod(i, ws)
       +y = U32.div(i, ws)
       put(~wr, U32.to_nat(U32.div((ws * hs - 1 - i : U32), s)), x, y, U32.mod(s, ws), U32.div(s, ws), c,
@@ -690,7 +850,7 @@ def P2.join(l: P2, r: P2) -> P2:
 def node(~wr: Array<U32> -> U32 -> U32 -> Array<U32>, +d: Nat, +i: U32, +s: U32, +c: Cam, +w: Array<U32>, +fb: Array<U32>) -> P2:
   match d:
     case 0n:
-      Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc} = c
+      Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc, skp} = c
       leaf.if(~wr, (i >= ws * hs : U32), i, s, c, w, fb)
     case 1n+e:
       a b = node(~wr, e, i, s, c, w, fb) node(~wr, e, (i + U32.shln(1, e) : U32), s, c, w, fb)
@@ -698,7 +858,7 @@ def node(~wr: Array<U32> -> U32 -> U32 -> Array<U32>, +d: Nat, +i: U32, +s: U32,
 
 # The frame into fb (ws x hs, row-major): P2{w, fb}.
 def fill(~wr: Array<U32> -> U32 -> U32 -> Array<U32>, +c: Cam, +d: Nat, w: Array<U32>, fb: Array<U32>) -> P2:
-  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc} = c
+  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc, skp} = c
   node(~wr, d, 0, U32.shln(1, d), c, w, fb)
 
 # The window image
@@ -843,7 +1003,7 @@ def O.img(+tl: Nat, +k: Nat, +ws: U32, +hs: U32, old: Image, p: P2) -> Out:
 # GPU turn under !), the last image dropped inside it.
 def draw.t(~wr: Array<U32> -> U32 -> U32 -> Array<U32>, +tl: Nat, +c: Cam, +d: Nat, +k: Nat,
   w: Array<U32>, fb: Array<U32>, old: Image) -> Out:
-  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc} = c
+  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc, skp} = c
   O.img(tl, k, ws, hs, old, fill(~wr, c, d, w, fb))
 
 # draw with the conversion's tiles of 16 x 16 samples.
@@ -871,7 +1031,7 @@ def D.b1.if(on: Bool, w: Array<U32>, +x: U32, +y: U32, +c: Cam) -> Array<U32> & 
       (w, Pix{0})
 
 def D.b1.at(+x: U32, +y: U32, +c: Cam, w: Array<U32>) -> Array<U32> & Image:
-  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc} = c
+  Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc, skp} = c
   D.b1.if(((x < ws) && (y < hs) : U32), w, x, y, c)
 
 def D.b1(w: Array<U32>, x0: U32, y0: U32, c0: Cam) -> Array<U32> & Image:
@@ -919,7 +1079,7 @@ def D.node(+k: Nat, on: Bool, +x: U32, +y: U32, +c: Cam, +w: Array<U32>, old: Fo
     case 0n True{}:
       D.b4(w, x, y, c)
     case 1n+e True{}:
-      Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc} = c
+      Cam{ox, oy, oz, fx, fy, fz, ax, ay, az, bx, by, bz, ws, hs, tmax, tier, lx, ly, lz, snx, sny, snr, hot, tgx, tgy, tgz, lc, skp} = c
       Four{oa, ob, oc, od} = old
       +s = U32.shln(4, e)
       +x1 = (x + s : U32)

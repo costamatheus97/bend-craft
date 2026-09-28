@@ -6,7 +6,8 @@
 # Env (defaults in brackets): PLAY_W, PLAY_H [1280, 720] the window; PLAY_U [0] upscale (the
 # frame is rendered at W / 2^U x H / 2^U samples, each shown as 2^U x 2^U pixels); PLAY_TIER [3]
 # (0 flat, 1 textures, 2 + occlusion, 3 + shadows); PLAY_VD [48] view distance (blocks);
-# PLAY_D [14 on the GPU, 8 on the CPU] fork depth; PLAY_SEED [1]; PLAY_X, PLAY_Z [150, 100] the spawn column; PLAY_N
+# PLAY_D [14 on the GPU, 8 on the CPU] fork depth; PLAY_SKIP [0 on the GPU, 1 on the CPU] empty-space
+# skipping (the same frames); PLAY_SEED [1]; PLAY_X, PLAY_Z [150, 100] the spawn column; PLAY_N
 # [0: until quit] frames; PLAY_DEMO [0] (1: a scripted walk instead of the keyboard and mouse,
 # one tick a frame: a reproducible run for the benchmark); PLAY_MODE [2, or 1 where Blit.ok is 0: off Linux, JS] (0: render straight
 # into the window Image; 1: into a framebuffer, then convert it, in the same bang; 2: into a
@@ -135,7 +136,7 @@ def ppm(r: Result<&1, &1, U32 & String, String>, +ws: U32, +hs: U32, fb: Array<U
 
 def fin(+cfg: Cfg, window: Window, st: St) -> IO(Unit):
   Cfg{view, d, k, u, demo, log} = cfg
-  G.View{ws, hs, tier, vd, sel, saz, mode} = view
+  G.View{ws, hs, tier, vd, sel, saz, mode, skip} = view
   St{sim, fb, clk, inp, last, f} = st
   do IO<Unit>:
     Unit <- Window.close(window)
@@ -193,7 +194,7 @@ def shown(sim: Loop.Sim<G.Game>, clk: Loop.Clock, +inp: In.Input, +last: U32, +f
 def show(+cfg: Cfg, +t0: U32, +t1: U32, +t2: U32, window: Window, m: Mid,
   rest: Window -> St -> Image -> IO(Unit)) -> IO(Unit):
   Cfg{view, d, k, u, demo, log} = cfg
-  G.View{ws, hs, tier, vd, sel, saz, mode} = view
+  G.View{ws, hs, tier, vd, sel, saz, mode, skip} = view
   Mid{sim, fb, img, clk, +inp, +last, +f} = m
   do IO<Unit>:
     s : Sh <- present(mode, ws, hs, u, window, fb, img)
@@ -238,6 +239,7 @@ def main() -> IO(Unit):
     +vd : U32 <- num("PLAY_VD", 48)
     +gpu : U32 <- Lane.gpu()
     +d : U32 <- num("PLAY_D", Fx.sel((gpu > 0 : U32), 14, 8))
+    +skip : U32 <- num("PLAY_SKIP", Fx.sel((gpu > 0 : U32), 0, 1))
     +seed : U32 <- num("PLAY_SEED", 1)
     +x : U32 <- num("PLAY_X", 150)
     +z : U32 <- num("PLAY_Z", 100)
@@ -250,6 +252,6 @@ def main() -> IO(Unit):
     +hs : U32 = U32.shrn((h + U32.shln(1, U32.to_nat(u)) - 1 : U32), U32.to_nat(u))
     +k : Nat = Nat.sub(U32.log2((Fx.sel((w > h : U32), w, h) * 2 - 1 : U32)), Nat.add(U32.to_nat(u), 4n))
     Unit <- IO.print("play " ++ U32.show(w) ++ "x" ++ U32.show(h) ++ " samples " ++ U32.show(ws) ++ "x"
-      ++ U32.show(hs) ++ " tier " ++ U32.show(tier) ++ " vd " ++ U32.show(vd) ++ " k " ++ Nat.show(k) ++ " mode " ++ U32.show(mode) ++ " d " ++ U32.show(d))
-    start(Cfg{G.View{ws, hs, tier, vd, 7000, 34960, mode}, U32.to_nat(d), k, u, demo, log},
+      ++ U32.show(hs) ++ " tier " ++ U32.show(tier) ++ " vd " ++ U32.show(vd) ++ " k " ++ Nat.show(k) ++ " mode " ++ U32.show(mode) ++ " d " ++ U32.show(d) ++ " skip " ++ U32.show(skip))
+    start(Cfg{G.View{ws, hs, tier, vd, 7000, 34960, mode, skip}, U32.to_nat(d), k, u, demo, log},
       Fx.sel(U32.is_eq(n, 0), 2147483647, n), w, h, G.new(4n, seed, x, z))

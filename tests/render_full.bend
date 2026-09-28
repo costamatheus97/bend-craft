@@ -4,6 +4,8 @@
 # - tiers 0 (flat), 1 (textures), 2 (+ occlusion), 3 (+ shadows) at fork depth 0 (one leaf), then tier 3 at
 #   depths 4 and 11 (one sample a leaf): the framebuffer hash must not depend on the depth, and
 #   the window Image (converted in the same bang) must hash the same on every lane;
+# - empty-space skipping (cam.skip, the CPU's walk): tiers 0-3 at depth 3 with it on must hash
+#   as the frames without it, and so must a frame looking along the horizon (long empty rays);
 # - the bounds pass: the frame with a counting writer writes every sample exactly once and
 #   nothing past the frame (an index out of range would wrap onto some sample: a 2).
 import Base
@@ -33,23 +35,26 @@ def fr.out(o: R.Out) -> Fr:
   R.Out{w, fb, img} = o
   fr.h(w, ih(img), W.hash(fb))
 
-def cam(+g: Cfg, +tier: U32) -> R.Cam:
+def skip.of(+j: U32) -> U32:
+  Fx.b2u((j >= 6 : U32))
+
+def cam(+g: Cfg, +j: U32, +tier: U32) -> R.Cam:
   Cfg{lc, ws, hs, px, py, pz, yaw, pitch, vd, k} = g
-  R.cam(px, py, pz, yaw, pitch, ws, hs, vd, tier, 6000, 3000, lc)
+  R.cam.skip(R.cam(px, py, pz, yaw, pitch, ws, hs, vd, tier, 6000, 3000, lc), skip.of(j))
 
 def tier.of(+j: U32) -> U32:
-  Fx.sel((j < 4 : U32), j, 3)
+  Fx.sel((j < 4 : U32), j, Fx.sel((j < 6 : U32), 3, (j - 6 : U32)))
 
 def d.of(+j: U32) -> Nat:
-  U32.to_nat(Fx.sel((j < 4 : U32), 0, Fx.sel(U32.is_eq(j, 4), 4, 11)))
+  U32.to_nat(Fx.sel((j < 4 : U32), 0, Fx.sel(U32.is_eq(j, 4), 4, Fx.sel(U32.is_eq(j, 5), 11, 3))))
 
 def frame(+g: Cfg, +j: U32, w: Array<U32>, fb: Array<U32>) -> Fr:
   Cfg{lc, ws, hs, px, py, pz, yaw, pitch, vd, k} = g
-  fr.out(R.draw!(~W.Put.set, cam(g, tier.of(j)), d.of(j), k, w, fb, Pix{0}))
+  fr.out(R.draw!(~W.Put.set, cam(g, j, tier.of(j)), d.of(j), k, w, fb, Pix{0}))
 
 def line(+j: U32, +hf: U32, +hi: U32) -> String:
-  "render tier " ++ U32.show(tier.of(j)) ++ " d " ++ Nat.show(d.of(j)) ++ " fb " ++ U32.show(hf)
-    ++ " img " ++ U32.show(hi)
+  "render tier " ++ U32.show(tier.of(j)) ++ " d " ++ Nat.show(d.of(j)) ++ " skip "
+    ++ U32.show(skip.of(j)) ++ " fb " ++ U32.show(hf) ++ " img " ++ U32.show(hi)
 
 def go(n: Nat, +j: U32, +g: Cfg, fr: Fr) -> String:
   match n:
@@ -70,7 +75,7 @@ def cfg.p(+lc: Nat, +ws: U32, +hs: U32, +x: U32, +z: U32, +yaw: U32, +pitch: U32
   +k: Nat, p: W.P2) -> String:
   W.P2{hm, w} = p
   +py = eye(lc, x, z, hm[W.col(lc, x, z)])
-  go(5n, 0, Cfg{lc, ws, hs, (U32.shln(x, 16n) + 32768 : U32), py, (U32.shln(z, 16n) + 32768 : U32), yaw, pitch, vd, k},
+  go(9n, 0, Cfg{lc, ws, hs, (U32.shln(x, 16n) + 32768 : U32), py, (U32.shln(z, 16n) + 32768 : U32), yaw, pitch, vd, k},
     frame(Cfg{lc, ws, hs, (U32.shln(x, 16n) + 32768 : U32), py, (U32.shln(z, 16n) + 32768 : U32), yaw, pitch, vd, k},
       0, R.tex(lc, w), Array.new(U32, 16n, 0)))
 
@@ -136,16 +141,38 @@ def same(+lc: Nat, +ws: U32, +hs: U32, +x: U32, +z: U32, +k: Nat, +kd: Nat, +n: 
     3000, lc), 4, 4294967295, 4294967295, 4294967295)
   same.out(c, kd, n, R.draw!(~W.Put.set, c, 5n, k, R.tex(lc, w), Array.new(U32, fl, 0), Pix{0}))
 
+# Along the horizon (pitch 0), tier 3, with and without the skip.
+def hz.fin(+sk: U32, r: Array<U32> & U32) -> String:
+  (fb, +h) = r
+  "horizon tier 3 skip " ++ U32.show(sk) ++ " fb " ++ U32.show(h)
+
+def hz.h(+sk: U32, p: R.Out) -> String:
+  R.Out{w, fb, img} = p
+  hz.fin(sk, W.hash(fb))
+
+def hz(+lc: Nat, +ws: U32, +hs: U32, +x: U32, +z: U32, +k: Nat, +sk: U32, +fl: Nat, p: W.P2) -> String:
+  W.P2{hm, w} = p
+  hz.h(sk, R.draw!(~W.Put.set, R.cam.skip(R.cam(U32.shln(x, 16n), 3276800, U32.shln(z, 16n), 8192, 0,
+    ws, hs, 64, 3, 6000, 3000, lc), sk), 3n, k, R.tex(lc, w), Array.new(U32, fl, 0), Pix{0}))
+
 def main() -> IO(Unit):
   do IO<Unit>:
     IO.print(cfg.p(4n, 320, 180, 200, 60, 8192, 63000, 64, 5n, scene(4n, 1)))
     IO.print("bounds tier 3 bad " ++ U32.show(bad.s(4n, 320, 180, 128, 128, scene(4n, 1))))
     IO.print(same(4n, 320, 180, 128, 128, 5n, 7n, 9n, 16n, scene(4n, 1)))
-#|render tier 0 d 0 fb 1946779282 img 4227631818
-#|render tier 1 d 0 fb 3986443912 img 452468023
-#|render tier 2 d 0 fb 2162011840 img 3620368074
-#|render tier 3 d 0 fb 2460147521 img 1916533954
-#|render tier 3 d 4 fb 2460147521 img 1916533954
-#|render tier 3 d 11 fb 2460147521 img 1916533954
+    IO.print(hz(4n, 320, 180, 128, 128, 5n, 0, 16n, scene(4n, 1)))
+    IO.print(hz(4n, 320, 180, 128, 128, 5n, 1, 16n, scene(4n, 1)))
+#|render tier 0 d 0 skip 0 fb 1946779282 img 4227631818
+#|render tier 1 d 0 skip 0 fb 3986443912 img 452468023
+#|render tier 2 d 0 skip 0 fb 2162011840 img 3620368074
+#|render tier 3 d 0 skip 0 fb 2460147521 img 1916533954
+#|render tier 3 d 4 skip 0 fb 2460147521 img 1916533954
+#|render tier 3 d 11 skip 0 fb 2460147521 img 1916533954
+#|render tier 0 d 3 skip 1 fb 1946779282 img 4227631818
+#|render tier 1 d 3 skip 1 fb 3986443912 img 452468023
+#|render tier 2 d 3 skip 1 fb 2162011840 img 3620368074
+#|render tier 3 d 3 skip 1 fb 2460147521 img 1916533954
 #|bounds tier 3 bad 0
 #|direct tier 3 ui same-picture 1 2676129964
+#|horizon tier 3 skip 0 fb 2301324118
+#|horizon tier 3 skip 1 fb 2301324118

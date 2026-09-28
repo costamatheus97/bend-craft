@@ -225,7 +225,7 @@ def dir.z(+yaw: U32, +pitch: U32) -> U32:
 def pick(+lc: Nat, +p: P, w: Array<U32>) -> Array<U32> & R.Hit:
   P{x, y, z, vx, vy, vz, yaw, pitch, ground, slot, lmx, lmy, lmb} = p
   R.cast(w, x, (y + eye() : U32), z, dir.x(yaw, pitch), Fx.sin(pitch), dir.z(yaw, pitch), 20480, 5,
-    lc)
+    lc, 0)
 
 # Whether cell (cx, cy, cz) overlaps the player's box.
 def inbox(+p: P, +cx: U32, +cy: U32, +cz: U32) -> Bool:
@@ -406,9 +406,11 @@ def show.p(+p: P) -> String:
 # into the window Image, render.bend's direct; 1: into the framebuffer,
 # then converted, render.bend's draw: the framebuffer then holds the frame;
 # 2: into the framebuffer only, render.bend's fill, for a window that shows
-# the framebuffer itself (play.bend's Blit.frame): the image stays old).
+# the framebuffer itself (play.bend's Blit.frame): the image stays old),
+# and skip: render.bend's empty-space skipping (1: on; the same frames, faster
+# on the CPU, slower on the GPU).
 type View is Data:
-  View{ws: U32, hs: U32, tier: U32, vd: U32, sel: U32, saz: U32, mode: U32}
+  View{ws: U32, hs: U32, tier: U32, vd: U32, sel: U32, saz: U32, mode: U32, skip: U32}
 
 type Shown is Type:
   Shown{g: Game, fb: Array<U32>, img: Image}
@@ -418,11 +420,11 @@ def view.fin(+p: P, +lc: Nat, o: R.Out) -> Shown:
   Shown{Game{w, p, lc}, fb, img}
 
 def view.cam(+v: View, +p: P, +lc: Nat, +a: Aim) -> R.Cam:
-  View{ws, hs, tier, vd, sel, saz, mode} = v
+  View{ws, hs, tier, vd, sel, saz, mode, skip} = v
   P{x, y, z, vx, vy, vz, yaw, pitch, ground, slot, lmx, lmy, lmb} = p
   Aim{ax, ay, az} = a
-  R.cam.ui(R.cam(x, (y + eye() : U32), z, yaw, pitch, ws, hs, vd, tier, sel, saz, lc), slot, ax, ay,
-    az)
+  R.cam.ui(R.cam.skip(R.cam(x, (y + eye() : U32), z, yaw, pitch, ws, hs, vd, tier, sel, saz, lc), skip),
+    slot, ax, ay, az)
 
 def view.fb(+p: P, +lc: Nat, old: Image, r: R.P2) -> Shown:
   R.P2{w, fb} = r
@@ -443,7 +445,7 @@ def view.m(+mode: U32, +c: R.Cam, +d: Nat, +k: Nat, +p: P, +lc: Nat, w: Array<U3
       view.fin(p, lc, R.draw!(~W.Put.set, c, d, k, w, fb, old))
 
 def view.go(+v: View, +d: Nat, +k: Nat, fb: Array<U32>, old: Image, r: Game & Aim) -> Shown:
-  View{ws, hs, tier, vd, sel, saz, mode} = v
+  View{ws, hs, tier, vd, sel, saz, mode, skip} = v
   (g, +a) = r
   Game{w, +p, +lc} = g
   view.m(mode, view.cam(v, p, lc, a), d, k, p, lc, w, fb, old)

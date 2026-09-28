@@ -6,7 +6,8 @@
 #   voxels back; placing into the player's own box is refused;
 # - a scripted run over generated terrain (walk, turn by mouse and keys, jump, swim, break,
 #   place), then the same log encoded to words, decoded and replayed: the same state and voxels;
-# - render(state): the frame after the run (hotbar, crosshair, outline) hashes the same everywhere.
+# - render(state): the frame after the run (hotbar, crosshair, outline) hashes the same everywhere,
+#   with and without empty-space skipping (so every break and place kept the occupancy table).
 import Base
 import ../world.bend as W
 import ../game.bend as G
@@ -184,7 +185,13 @@ def shown(s: G.Shown) -> String:
   shown.h(img, W.hash(fb))
 
 def view() -> String:
-  shown(G.view(G.View{64, 36, 3, 24, 7000, 30000, 1}, 6n, 2n, run(script(), G.new(2n, 1, 20, 12)),
+  shown(G.view(G.View{64, 36, 3, 24, 7000, 30000, 1, 0}, 6n, 2n, run(script(), G.new(2n, 1, 20, 12)),
+    Array.new(U32, 12n, 0), Pix{0}))
+
+# The same frame with empty-space skipping (the occupancy table kept by every
+# break and place of the run).
+def view.s() -> String:
+  "skip " ++ shown(G.view(G.View{64, 36, 3, 24, 7000, 30000, 1, 1}, 6n, 2n, run(script(), G.new(2n, 1, 20, 12)),
     Array.new(U32, 12n, 0), Pix{0}))
 
 def main() -> IO(Unit):
@@ -199,6 +206,7 @@ def main() -> IO(Unit):
     IO.print(terrain())
     IO.print(replay())
     IO.print(view())
+    IO.print(view.s())
 #|land pos 688128 655360 688128 v 0 0 0 look 16384 0 ground 1 slot 2
 #|wall pos 897843 655360 688128 v 0 0 0 look 16384 0 ground 1 slot 2
 #|edge pos 19661 655360 688128 v 0 0 0 look 49152 0 ground 1 slot 2
@@ -209,3 +217,4 @@ def main() -> IO(Unit):
 #|terrain hash 2276724248 pos 1939021 2040050 454310 v 1785 4294965909 4294962953 look 28712 4294958128 ground 0 slot 2
 #|replay hash 2276724248 pos 1939021 2040050 454310 v 1785 4294965909 4294962953 look 28712 4294958128 ground 0 slot 2
 #|view fb 679483341 img 2849042313
+#|skip view fb 679483341 img 2849042313
